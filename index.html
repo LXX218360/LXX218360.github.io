@@ -1,0 +1,2881 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+    <title>LXX蓝牙控制</title>
+    <!-- PWA相关 -->
+    <meta name="description" content="LXX蓝牙控制，支持HC-05等蓝牙模块的调试和控制工具">
+    <meta name="theme-color" content="#38BDF8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="LXX蓝牙控制">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🔷</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>🔷</text></svg>">
+    <!-- Tailwind CSS v3 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.8/dist/chart.umd.min.js"></script>
+    <!-- 统一的 Tailwind 配置 -->
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#38BDF8',
+                        secondary: '#22C55E',
+                        warning: '#F59E0B',
+                        accent: '#F97316',
+                        danger: '#EF4444',
+                        dark: '#0F172A',
+                        'dark-light': '#1E293B',
+                        'dark-lighter': '#334155'
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style type="text/tailwindcss">
+        @layer utilities {
+            .btn-primary {
+                @apply bg-primary text-dark font-bold py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all duration-200 active:scale-95 touch-manipulation;
+            }
+            .btn-secondary {
+                @apply bg-dark-light text-primary font-bold py-3 px-6 rounded-lg border border-primary hover:bg-primary hover:text-dark transition-all duration-200 active:scale-95 touch-manipulation;
+            }
+            .btn-danger {
+                @apply bg-danger text-white font-bold py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all duration-200 active:scale-95 touch-manipulation;
+            }
+            .card {
+                @apply bg-dark-light rounded-xl p-4 border border-dark-lighter;
+            }
+            .glass-effect {
+                @apply backdrop-blur-lg bg-dark-light/80 border border-white/10;
+            }
+            .nav-item {
+                @apply flex flex-col items-center justify-center p-3 text-gray-400 hover:text-primary transition-colors duration-200 touch-manipulation;
+            }
+            .nav-item.active {
+                @apply text-primary;
+            }
+            .data-card {
+                @apply bg-dark-light rounded-lg p-3 border border-dark-lighter flex items-center justify-between;
+            }
+            .data-value {
+                @apply text-lg font-bold text-primary;
+            }
+            .control-btn {
+                @apply bg-dark-light text-white font-bold rounded-lg border border-dark-lighter hover:bg-primary hover:text-dark transition-all duration-200 active:scale-95 flex items-center justify-center touch-manipulation min-h-[56px];
+            }
+            .no-scrollbar::-webkit-scrollbar {
+                display: none;
+            }
+            .no-scrollbar {
+                -ms-overflow-style: none;
+                scrollbar-width: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-dark text-white min-h-screen overflow-x-hidden">
+    <!-- 页面容器 -->
+    <div class="container mx-auto px-4 py-4 pb-20">
+        <!-- 连接页面 -->
+        <div id="connect-page" class="page">
+            <div class="text-center mb-8">
+                <div class="w-20 h-20 bg-primary rounded-full flex items-center justify-center mx-auto mb-4">
+                    <i class="fa fa-bluetooth text-4xl text-dark"></i>
+                </div>
+                <h1 class="text-2xl font-bold mb-2">LXX蓝牙控制</h1>
+                <p class="text-gray-400">连接到您的蓝牙模块</p>
+            </div>
+
+            <!-- 连接状态 -->
+            <div class="card mb-6">
+                <div id="connection-status" class="text-center py-6">
+                    <div class="text-4xl text-gray-400 mb-4">
+                        <i class="fa fa-bluetooth"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2">未连接</h3>
+                    <p class="text-gray-400 mb-4">请点击下方按钮搜索并连接设备</p>
+                    
+                    <div class="flex flex-col space-y-3">
+                        <button id="search-btn" onclick="searchDevices()" class="btn-primary">
+                            <i class="fa fa-search mr-2"></i> 搜索设备
+                        </button>
+                        <button id="config-btn" onclick="showConfig()" class="btn-secondary">
+                            <i class="fa fa-cog mr-2"></i> 配置设置
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 设备列表 -->
+            <div id="device-list" class="hidden">
+                <h2 class="text-lg font-bold mb-3 flex items-center">
+                    <i class="fa fa-list-ul text-primary mr-2"></i>
+                    可用设备
+                </h2>
+                <div id="devices-container" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar">
+                    <!-- 设备列表将动态添加 -->
+                </div>
+            </div>
+
+            <!-- 连接中状态 -->
+            <div id="connecting" class="hidden">
+                <div class="text-center py-8">
+                    <div class="inline-block animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
+                    <h3 class="text-lg font-bold mb-2">正在连接...</h3>
+                    <p class="text-gray-400" id="connecting-device">正在连接到设备...</p>
+                </div>
+            </div>
+
+            <!-- AT指令助手 -->
+            <div class="card mb-6">
+                <h2 class="text-lg font-bold mb-4 flex items-center">
+                    <i class="fa fa-terminal text-success mr-2"></i>
+                    AT指令助手
+                </h2>
+                <div class="space-y-3">
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="sendATCommand('AT')" class="btn-secondary text-sm py-2">
+                            测试连接
+                        </button>
+                        <button onclick="sendATCommand('AT+VERSION?')" class="btn-secondary text-sm py-2">
+                            版本信息
+                        </button>
+                        <button onclick="sendATCommand('AT+NAME=HC-05')" class="btn-secondary text-sm py-2">
+                            设置名称
+                        </button>
+                        <button onclick="sendATCommand('AT+PSWD=1234')" class="btn-secondary text-sm py-2">
+                            设置密码
+                        </button>
+                        <button onclick="sendATCommand('AT+UART=9600,1,0')" class="btn-secondary text-sm py-2">
+                            波特率9600
+                        </button>
+                        <button onclick="sendATCommand('AT+ORGL')" class="btn-warning text-sm py-2">
+                            恢复出厂
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 使用说明 -->
+            <div class="card">
+                <h2 class="text-lg font-bold mb-3 flex items-center">
+                    <i class="fa fa-info-circle text-primary mr-2"></i>
+                    使用说明
+                </h2>
+                <div class="text-sm text-gray-300 space-y-2">
+                    <p>1. 点击"搜索设备"按钮</p>
+                    <p>2. 在弹出的列表中选择您的蓝牙模块</p>
+                    <p>3. 连接成功后进入控制页面</p>
+                    <p>4. 使用方向键控制小车移动</p>
+                    <p class="text-warning">注意：支持HC-05、HC-06等串口蓝牙模块</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- 控制页面 -->
+        <div id="control-page" class="page hidden">
+            <!-- 顶部状态栏 -->
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center space-x-2">
+                    <i class="fa fa-bluetooth text-primary text-xl"></i>
+                    <h1 class="text-lg font-bold">LXX蓝牙控制</h1>
+                </div>
+                <div class="flex items-center space-x-3">
+                    <div id="control-connection-status" class="flex items-center space-x-1 text-primary">
+                        <i class="fa fa-bluetooth"></i>
+                        <span>已连接</span>
+                    </div>
+                    <button onclick="disconnectFromDevice()" class="px-3 py-1 bg-danger text-white rounded-lg text-sm font-bold hover:bg-opacity-80 transition">
+                        <i class="fa fa-times mr-1"></i> 断开
+                    </button>
+                </div>
+            </div>
+
+            <!-- 实时数据显示 -->
+            <div class="mb-6">
+                <h2 class="text-lg font-bold mb-3 flex items-center">
+                    <i class="fa fa-tachometer text-primary mr-2"></i>
+                    实时数据
+                </h2>
+                
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="data-card">
+                        <div>
+                            <div class="text-sm text-gray-400">俯仰角</div>
+                            <div id="pitch-value" class="data-value">0.0°</div>
+                        </div>
+                        <i class="fa fa-arrow-up text-2xl text-primary"></i>
+                    </div>
+                    <div class="data-card">
+                        <div>
+                            <div class="text-sm text-gray-400">横滚角</div>
+                            <div id="roll-value" class="data-value">0.0°</div>
+                        </div>
+                        <i class="fa fa-arrow-right text-2xl text-primary"></i>
+                    </div>
+                    <div class="data-card">
+                        <div>
+                            <div class="text-sm text-gray-400">距离</div>
+                            <div id="distance-value" class="data-value">0 cm</div>
+                        </div>
+                        <i class="fa fa-arrows-h text-2xl text-primary"></i>
+                    </div>
+                    <div class="data-card">
+                        <div>
+                            <div class="text-sm text-gray-400">温度</div>
+                            <div id="temperature-value" class="data-value">0°C</div>
+                        </div>
+                        <i class="fa fa-thermometer-half text-2xl text-primary"></i>
+                    </div>
+                    <div class="data-card">
+                        <div>
+                            <div class="text-sm text-gray-400">湿度</div>
+                            <div id="humidity-value" class="data-value">0%</div>
+                        </div>
+                        <i class="fa fa-tint text-2xl text-primary"></i>
+                    </div>
+                    <div class="data-card">
+                        <div>
+                            <div class="text-sm text-gray-400">酒精浓度</div>
+                            <div id="alcohol-value" class="data-value">0</div>
+                        </div>
+                        <i class="fa fa-flask text-2xl text-primary"></i>
+                    </div>
+                </div>
+                
+                <!-- 酒精报警状态 -->
+                <div id="alcohol-alarm" class="hidden">
+                    <div class="bg-danger bg-opacity-10 border border-danger border-opacity-30 rounded-lg p-4 mb-4">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center">
+                                <i class="fa fa-exclamation-triangle text-danger text-xl mr-2"></i>
+                                <div>
+                                    <div class="font-bold text-danger">酒精检测报警</div>
+                                    <div class="text-sm text-gray-300">检测到酒精浓度超标</div>
+                                </div>
+                            </div>
+                            <button onclick="acknowledgeAlarm()" class="px-3 py-1 bg-danger text-white rounded-lg text-sm font-bold hover:bg-opacity-80 transition">
+                                确认
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 模式显示 -->
+                <div class="card mb-4">
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <div class="text-sm text-gray-400">当前模式</div>
+                            <div id="current-mode" class="text-lg font-bold text-primary">循迹模式</div>
+                        </div>
+                        <div class="flex space-x-2">
+                            <button onclick="switchMode('track')" id="track-mode-btn" class="px-3 py-1 bg-primary text-dark rounded-lg text-sm font-bold">
+                                循迹
+                            </button>
+                            <button onclick="switchMode('control')" id="control-mode-btn" class="px-3 py-1 bg-dark-lighter text-white rounded-lg text-sm font-bold">
+                                遥控
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 数据图表 -->
+                <div class="card">
+                    <div class="flex justify-between items-center mb-3">
+                        <h3 class="font-bold">传感器数据</h3>
+                        <div class="flex space-x-2">
+                            <button onclick="toggleChartData('attitude')" class="px-2 py-1 bg-primary bg-opacity-20 text-primary rounded text-xs">
+                                姿态
+                            </button>
+                            <button onclick="toggleChartData('distance')" class="px-2 py-1 bg-dark-lighter text-white rounded text-xs">
+                                距离
+                            </button>
+                            <button onclick="toggleChartData('alcohol')" class="px-2 py-1 bg-dark-lighter text-white rounded text-xs">
+                                酒精
+                            </button>
+                        </div>
+                    </div>
+                    <div style="height: 150px;">
+                        <canvas id="data-chart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 控制区域 -->
+            <div>
+                <h2 class="text-lg font-bold mb-3 flex items-center">
+                    <i class="fa fa-gamepad text-primary mr-2"></i>
+                    方向控制
+                </h2>
+                
+                <!-- 控制按钮 -->
+                <div class="grid grid-cols-3 gap-3 mb-6">
+                    <button onclick="sendCommand('C')" class="control-btn py-4" data-btn-name="姿态校准" data-btn-command="C">
+                        <i class="fa fa-calendar-check-o text-xl"></i>
+                    </button>
+                    <button ontouchstart="startPress('W')" ontouchend="endPress()" onmousedown="startPress('W')" onmouseup="endPress()" onmouseleave="endPress()" class="control-btn py-4" data-btn-name="前进" data-btn-command="W">
+                        <i class="fa fa-arrow-up text-xl"></i>
+                    </button>
+                    <button id="config-button" onclick="openConfigDialog()" class="control-btn py-4 bg-blue-600">
+                        <i class="fa fa-cog text-xl"></i>
+                    </button>
+                    
+                    <button ontouchstart="startPress('A')" ontouchend="endPress()" onmousedown="startPress('A')" onmouseup="endPress()" onmouseleave="endPress()" class="control-btn py-4" data-btn-name="左转" data-btn-command="A">
+                        <i class="fa fa-arrow-left text-xl"></i>
+                    </button>
+                    <button onclick="sendCommand('S')" class="control-btn py-4 bg-danger" data-btn-name="停止" data-btn-command="S">
+                        <i class="fa fa-stop text-xl"></i>
+                    </button>
+                    <button ontouchstart="startPress('D')" ontouchend="endPress()" onmousedown="startPress('D')" onmouseup="endPress()" onmouseleave="endPress()" class="control-btn py-4" data-btn-name="右转" data-btn-command="D">
+                        <i class="fa fa-arrow-right text-xl"></i>
+                    </button>
+                    
+                    <div></div>
+                    <button ontouchstart="startPress('X')" ontouchend="endPress()" onmousedown="startPress('X')" onmouseup="endPress()" onmouseleave="endPress()" class="control-btn py-4" data-btn-name="后退" data-btn-command="X">
+                        <i class="fa fa-arrow-down text-xl"></i>
+                    </button>
+                    <div></div>
+                </div>
+                
+                <!-- 速度和PWM显示方块 -->
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="card text-center py-4">
+                        <div class="text-sm text-gray-400 mb-1">当前速度</div>
+                        <div id="speed-value" class="text-2xl font-bold text-primary">40%</div>
+                    </div>
+                    <div class="card text-center py-4">
+                        <div class="text-sm text-gray-400 mb-1">循迹PWM</div>
+                        <div id="pwm-value" class="text-2xl font-bold text-primary">35</div>
+                    </div>
+                </div>
+                
+                <!-- 额外控制 -->
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="sendCommand('Q')" class="control-btn py-3" data-command="Q" data-original-text="加速">
+                        <i class="fa fa-plus mr-2"></i> 加速
+                    </button>
+                    <button onclick="sendCommand('E')" class="control-btn py-3" data-command="E" data-original-text="减速">
+                        <i class="fa fa-minus mr-2"></i> 减速
+                    </button>
+                    <button onclick="sendCommand('P')" id="pause-btn" class="control-btn py-3" data-command="P" data-original-text="暂停">
+                        <i class="fa fa-pause mr-2"></i> 暂停
+                    </button>
+                    <div class="grid grid-cols-2 gap-2">
+                        <button onclick="sendCommand('Z')" class="control-btn py-3 text-sm" data-command="Z" data-original-text="循迹加速">
+                            <i class="fa fa-arrow-up mr-1"></i> 循迹加速
+                        </button>
+                        <button onclick="sendCommand('C')" class="control-btn py-3 text-sm" data-command="C" data-original-text="循迹减速">
+                            <i class="fa fa-arrow-down mr-1"></i> 循迹减速
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- 数据与日志页面 -->
+        <div id="data-log-page" class="page hidden">
+            <h2 class="text-lg font-bold mb-4 flex items-center">
+                <i class="fa fa-database text-primary mr-2"></i>
+                数据与日志
+            </h2>
+            
+            <!-- 网络时间显示 -->
+            <div class="card mb-6">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-bold">系统时间</h3>
+                        <p id="network-time" class="text-sm text-gray-300">正在获取...</p>
+                    </div>
+                    <button onclick="useLocalTime()" class="btn-primary text-sm">
+                        <i class="fa fa-refresh mr-1"></i> 同步本地时间
+                    </button>
+                </div>
+            </div>
+            
+            <!-- 跌倒统计信息 -->
+            <div class="grid grid-cols-2 gap-3 mb-6">
+                <div class="card text-center py-4">
+                    <div class="text-sm text-gray-400 mb-1">今日跌倒</div>
+                    <div id="today-fall-count" class="text-2xl font-bold text-danger">0</div>
+                </div>
+                <div class="card text-center py-4">
+                    <div class="text-sm text-gray-400 mb-1">总跌倒次数</div>
+                    <div id="total-fall-count" class="text-2xl font-bold text-danger">0</div>
+                </div>
+            </div>
+            
+            <!-- 跌倒记录 -->
+            <div class="card mb-6">
+                <div class="flex items-center justify-between mb-3">
+                    <h3 class="font-bold">跌倒记录</h3>
+                    <button onclick="clearFallLogs()" class="btn-danger text-sm px-3 py-1">
+                        <i class="fa fa-trash mr-1"></i> 清空
+                    </button>
+                </div>
+                <div id="fall-log-container" class="space-y-3 max-h-48 overflow-y-auto no-scrollbar">
+                    <div class="text-center py-6 text-gray-400">
+                        <i class="fa fa-check-circle text-2xl mb-2"></i>
+                        <p>暂无跌倒记录</p>
+                        <p class="text-sm mt-1">设备正常运行中</p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 数据显示区域 -->
+            <div class="card">
+                <h3 class="font-bold mb-3">接收数据</h3>
+                <div id="data-display" class="bg-dark rounded-lg p-3 h-64 overflow-y-auto no-scrollbar text-sm font-mono">
+                    <div class="text-gray-400">等待接收数据...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 配置弹窗 -->
+    <div id="config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
+        <div class="bg-dark-light rounded-xl p-6 max-w-md w-full">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">蓝牙配置</h2>
+                <button onclick="hideConfig()" class="text-gray-400 hover:text-white">
+                    <i class="fa fa-times"></i>
+                </button>
+            </div>
+            
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">设备名称</label>
+                    <input type="text" id="device-name" value="HC-05" 
+                        class="w-full bg-dark border border-dark-lighter rounded-lg px-3 py-2 text-white">
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">波特率</label>
+                    <select id="baud-rate" class="w-full bg-dark border border-dark-lighter rounded-lg px-3 py-2 text-white">
+                        <option value="9600">9600</option>
+                        <option value="19200">19200</option>
+                        <option value="38400" selected>38400</option>
+                        <option value="57600">57600</option>
+                        <option value="115200">115200</option>
+                    </select>
+                </div>
+                
+                <div>
+                    <label class="block text-sm font-medium mb-1">配对密码</label>
+                    <input type="text" id="password" value="123456" 
+                        class="w-full bg-dark border border-dark-lighter rounded-lg px-3 py-2 text-white">
+                </div>
+                
+                <!-- 阈值配置 -->
+                <div class="border-t border-dark-lighter pt-4 mt-4">
+                    <h3 class="font-bold mb-3 flex items-center">
+                        <i class="fa fa-sliders text-primary mr-2"></i>
+                        阈值设置
+                    </h3>
+                    
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between">
+                            <label class="text-sm">自动适配阈值</label>
+                            <label class="inline-flex items-center cursor-pointer">
+                                <input type="checkbox" id="auto-adjust" 
+                                    class="sr-only peer">
+                                <div class="relative w-11 h-6 bg-dark-lighter peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
+                            </label>
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">姿态角警告阈值</label>
+                                <input type="number" id="attitude-warning" min="10" max="60" value="30" 
+                                    class="w-full bg-dark border border-dark-lighter rounded-lg px-2 py-1 text-sm text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">姿态角危险阈值</label>
+                                <input type="number" id="attitude-danger" min="20" max="80" value="45" 
+                                    class="w-full bg-dark border border-dark-lighter rounded-lg px-2 py-1 text-sm text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">WQ警告阈值</label>
+                                <input type="number" id="wq-warning" min="500" max="3000" value="1000" 
+                                    class="w-full bg-dark border border-dark-lighter rounded-lg px-2 py-1 text-sm text-white">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-400 mb-1">WQ危险阈值</label>
+                                <input type="number" id="wq-danger" min="800" max="5000" value="1500" 
+                                    class="w-full bg-dark border border-dark-lighter rounded-lg px-2 py-1 text-sm text-white">
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="mt-6">
+                <button onclick="saveConfig()" class="btn-primary w-full">
+                    保存配置
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 底部导航栏 -->
+    <nav class="fixed bottom-0 left-0 right-0 bg-dark-light border-t border-dark-lighter z-50">
+        <div class="flex justify-around">
+            <div class="nav-item active" onclick="switchPage('connect-page')">
+                <i class="fa fa-bluetooth text-xl"></i>
+                <span class="text-xs mt-1">连接</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('control-page')">
+                <i class="fa fa-gamepad text-xl"></i>
+                <span class="text-xs mt-1">控制</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('data-log-page')">
+                <i class="fa fa-database text-xl"></i>
+                <span class="text-xs mt-1">数据日志</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Toast提示 -->
+    <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-dark-light border border-dark-lighter rounded-lg px-4 py-2 shadow-lg hidden z-50">
+        <div class="flex items-center space-x-2">
+            <i id="toast-icon" class="fa fa-info-circle text-primary"></i>
+            <span id="toast-message">消息内容</span>
+        </div>
+    </div>
+
+    <script>
+        // 全局变量
+        let bluetoothManager = null;
+        let dataParser = null;
+        let logManager = null;
+        let dataChart = null;
+        let currentPage = 'connect-page';
+        let isPaused = false;
+        let currentMode = 'track';
+        let currentChartType = 'attitude';
+        let networkTime = null;
+        let fallDetectionTimeout = null;
+        
+        // 配置信息
+        let config = {
+            bluetooth: {
+                deviceName: 'HC-05',
+                baudRate: 38400,
+                password: '123456',
+                serviceUuid: '0000ffe0-0000-1000-8000-00805f9b34fb',
+                characteristicUuid: '0000ffe1-0000-1000-8000-00805f9b34fb'
+            },
+            ui: {
+                autoConnect: true,
+                showAdvancedData: false
+            },
+            thresholds: {
+                pitch: { warning: 30, danger: 45 },
+                roll: { warning: 30, danger: 45 },
+                wq: { warning: 1000, danger: 1500 },
+                autoAdjust: true
+            }
+        };
+
+        // 配置模式管理
+        let isConfigMode = false;
+        let originalButtonStyles = [];
+        let configButtonOriginal = {
+            className: '',
+            innerHTML: '',
+            onclick: ''
+        };
+        
+        // 切换配置模式
+        function toggleConfigMode() {
+            const configButton = document.getElementById('config-button');
+            const buttons = document.querySelectorAll('[data-btn-name][data-btn-command]');
+            
+            if (!isConfigMode) {
+                // 进入配置模式
+                isConfigMode = true;
+                originalButtonStyles = [];
+                
+                // 保存配置按钮的原始状态
+                configButtonOriginal = {
+                    className: configButton.className,
+                    innerHTML: configButton.innerHTML,
+                    onclick: configButton.getAttribute('onclick')
+                };
+                
+                // 保存原始样式并改变按钮颜色
+                buttons.forEach(button => {
+                    originalButtonStyles.push({
+                        element: button,
+                        className: button.className,
+                        onclick: button.getAttribute('onclick'),
+                        ontouchstart: button.getAttribute('ontouchstart')
+                    });
+                    
+                    // 改变按钮样式为可编辑状态
+                    button.className = button.className.replace('bg-primary', 'bg-yellow-400').replace('bg-danger', 'bg-yellow-400');
+                    button.classList.add('border-2', 'border-yellow-600');
+                    
+                    // 移除原有事件，添加配置事件
+                    button.removeAttribute('onclick');
+                    button.removeAttribute('ontouchstart');
+                    button.addEventListener('click', handleButtonConfig);
+                });
+                
+                // 改变配置按钮样式
+                configButton.className = configButtonOriginal.className.replace('bg-blue-600', 'bg-green-600');
+                configButton.innerHTML = '<i class="fa fa-check text-xl"></i>';
+                configButton.setAttribute('onclick', 'toggleConfigMode()');
+                
+                showToast('进入配置模式，点击按钮进行修改', 'info');
+            } else {
+                // 退出配置模式
+                isConfigMode = false;
+                
+                // 恢复按钮原始样式和事件
+                originalButtonStyles.forEach(({element, className, onclick, ontouchstart}) => {
+                    element.className = className;
+                    element.classList.remove('border-2', 'border-yellow-600');
+                    
+                    // 恢复原有事件
+                    element.removeEventListener('click', handleButtonConfig);
+                    if (onclick) element.setAttribute('onclick', onclick);
+                    if (ontouchstart) element.setAttribute('ontouchstart', ontouchstart);
+                });
+                
+                // 完全恢复配置按钮到初始状态
+                configButton.className = configButtonOriginal.className;
+                configButton.innerHTML = configButtonOriginal.innerHTML;
+                configButton.setAttribute('onclick', configButtonOriginal.onclick);
+                
+                // 清空保存的状态
+                originalButtonStyles = [];
+                configButtonOriginal = {
+                    className: '',
+                    innerHTML: '',
+                    onclick: ''
+                };
+                
+                showToast('已退出配置模式', 'success');
+            }
+        }
+        
+        // 处理按钮配置
+        function handleButtonConfig(event) {
+            const button = event.currentTarget;
+            const currentName = button.getAttribute('data-btn-name');
+            const currentCommand = button.getAttribute('data-btn-command');
+            
+            // 创建配置对话框
+            const newName = prompt('请输入新的按钮名称:', currentName);
+            if (newName === null) return;
+            
+            const newCommand = prompt('请输入新的发送字符:', currentCommand);
+            if (newCommand === null) return;
+            
+            // 验证输入
+            if (!newName.trim()) {
+                alert('按钮名称不能为空！');
+                return;
+            }
+            
+            if (newCommand.length !== 1) {
+                alert('发送字符必须是单个字符！');
+                return;
+            }
+            
+            // 更新按钮属性
+            button.setAttribute('data-btn-name', newName);
+            button.setAttribute('data-btn-command', newCommand);
+            
+            // 更新按钮的事件处理
+            if (button.hasAttribute('onclick')) {
+                button.setAttribute('onclick', `sendCommand('${newCommand}')`);
+            } else if (button.hasAttribute('ontouchstart')) {
+                const touchStart = button.getAttribute('ontouchstart');
+                const newTouchStart = touchStart.replace(/startPress\('[^']*'\)/, `startPress('${newCommand}')`);
+                button.setAttribute('ontouchstart', newTouchStart);
+                
+                const mouseDown = button.getAttribute('onmousedown');
+                const newMouseDown = mouseDown.replace(/startPress\('[^']*'\)/, `startPress('${newCommand}')`);
+                button.setAttribute('onmousedown', newMouseDown);
+            }
+            
+            showToast(`已更新: ${newName} (${newCommand})`, 'success');
+        }
+        
+        // 重命名原函数以保持兼容性
+        function openConfigDialog() {
+            toggleConfigMode();
+        }
+
+        // 页面加载完成
+        document.addEventListener('DOMContentLoaded', function() {
+            console.log('🚀 LXX蓝牙控制已启动');
+            
+            // 初始化管理器
+            initializeManagers();
+            
+            // 加载配置
+            loadConfig();
+            
+            // 初始化图表
+            initializeChart();
+            
+            // 配置功能已通过配置按钮实现
+            
+            // 监听键盘事件（用于电脑端测试）
+            document.addEventListener('keydown', handleKeyDown);
+            document.addEventListener('keyup', handleKeyUp);
+            
+            // 直接使用本地时间
+            useLocalTime();
+            
+            // 检查蓝牙API支持
+            checkBluetoothSupport();
+            
+            // 显示兼容性提示
+            showCompatibilityInfo();
+        });
+
+        // 初始化管理器
+        function initializeManagers() {
+            bluetoothManager = new BluetoothManager(config.bluetooth);
+            dataParser = new DataParser();
+            logManager = new LogManager();
+        }
+
+        // 蓝牙管理器类
+        // 蓝牙管理器类（修复版：保活、强制重置、解决搜索失败）
+        class BluetoothManager {
+            constructor(config) {
+                this.config = config;
+                this.device = null;
+                this.server = null;
+                this.characteristic = null;
+                this.isConnected = false;
+                this.receiveBuffer = '';
+                this.connectionTimeout = null;
+                this.keepAliveInterval = null; // 保活定时器
+                this.lastHeartbeatTime = Date.now();
+            }
+            
+            // 【修复】强制重置所有蓝牙状态（解决搜索失败）
+            forceReset() {
+                try {
+                    // 停止所有定时器
+                    this.stopKeepAlive();
+                    if (this.connectionTimeout) clearTimeout(this.connectionTimeout);
+                    
+                    // 断开连接
+                    if (this.device && this.device.gatt) {
+                        this.device.gatt.disconnect().catch(() => {});
+                    }
+                    
+                    // 清空所有状态
+                    this.device = null;
+                    this.server = null;
+                    this.characteristic = null;
+                    this.isConnected = false;
+                    this.receiveBuffer = '';
+                    
+                    console.log('🔄 蓝牙状态已强制重置');
+                } catch (e) {
+                    console.warn('⚠️ 重置状态异常');
+                }
+            }
+
+            // 【新增】蓝牙保活（解决自动断开）
+            startKeepAlive() {
+                this.stopKeepAlive();
+                // 每2秒发送空数据保活，防止浏览器空闲断开
+                this.keepAliveInterval = setInterval(() => {
+                    if (this.isConnected && this.characteristic) {
+                        this.characteristic.writeValue(new TextEncoder().encode(' ')).catch(() => {});
+                    }
+                }, 2000);
+            }
+
+            stopKeepAlive() {
+                if (this.keepAliveInterval) {
+                    clearInterval(this.keepAliveInterval);
+                    this.keepAliveInterval = null;
+                }
+            }
+            
+            // 搜索设备 - 自动处理环境和权限
+            async searchDevices() {
+                try {
+                    // 【修复】搜索前强制重置状态，解决搜索失败
+                    this.forceReset();
+                    
+                    // 自动处理权限申请
+                    const hasPermission = await this.requestAllPermissions();
+                    if (!hasPermission) {
+                        throw new Error('权限不足，无法搜索蓝牙设备');
+                    }
+                    
+                    // 检查蓝牙状态
+                    const isBluetoothEnabled = await this.checkBluetoothEnabled();
+                    if (!isBluetoothEnabled) {
+                        throw new Error('蓝牙未开启，请先开启蓝牙');
+                    }
+                    
+                    // 自动环境检测和适配
+                    return await this.autoDetectAndSearch();
+                } catch (error) {
+                    console.error('❌ 搜索设备失败:', error);
+                    
+                    // 显示友好的错误提示
+                    if (error.message.includes('Origin is not secure')) {
+                        console.warn('⚠️ 安全限制：当前连接不是安全连接');
+                        showToast('请使用HTTPS连接或在HBuilder X中运行', 'warning');
+                    } else if (error.message.includes('User cancelled')) {
+                        console.log('👤 用户取消了设备选择');
+                        showToast('设备选择已取消', 'info');
+                    } else if (error.message.includes('权限不足')) {
+                        console.warn('⚠️ 权限被拒绝');
+                        showToast('请在系统设置中开启蓝牙和位置权限', 'warning');
+                    } else if (error.message.includes('蓝牙未开启')) {
+                        console.warn('🔷 蓝牙未开启');
+                        showToast('请先开启设备蓝牙', 'warning');
+                    } else {
+                        console.error('❌ 搜索设备时出现错误:', error);
+                        showToast('搜索设备时出现问题，请重试', 'warning');
+                    }
+                    
+                    throw error;
+                }
+            }
+            
+            // 自动检测环境并搜索设备
+            async autoDetectAndSearch() {
+                // 检查是否在HBuilder X环境中
+                const isHBuilderX = window.plus && plus.bluetooth;
+                
+                if (isHBuilderX) {
+                    console.log('🔍 在HBuilder X环境中搜索蓝牙设备...');
+                    return await this.searchDevicesWithPlus();
+                } else if (navigator.bluetooth) {
+                    console.log('🔍 在Web环境中搜索蓝牙设备...');
+                    return await this.searchDevicesWithWebBluetooth();
+                } else {
+                    console.warn('⚠️ 当前环境可能不完全支持蓝牙功能');
+                    showToast('蓝牙功能可能受限，但您仍可以尝试使用其他功能', 'info');
+                    return null;
+                }
+            }
+            
+            // 请求所有必要的权限
+            async requestAllPermissions() {
+                try {
+                    const isHBuilderX = window.plus && plus.bluetooth;
+                    
+                    if (isHBuilderX) {
+                        return await this.requestPermissionsWithPlus();
+                    } else {
+                        console.log('🌐 Web环境下权限由浏览器自动管理');
+                        return true;
+                    }
+                } catch (error) {
+                    console.error('❌ 权限申请失败:', error);
+                    return false;
+                }
+            }
+            
+            // 使用HBuilder X plus API申请权限
+            async requestPermissionsWithPlus() {
+                return new Promise((resolve) => {
+                    try {
+                        plus.android.requestPermissions(['android.permission.BLUETOOTH', 'android.permission.BLUETOOTH_ADMIN'], (result) => {
+                            if (result && result[0] === 0) {
+                                plus.android.requestPermissions(['android.permission.ACCESS_FINE_LOCATION', 'android.permission.ACCESS_COARSE_LOCATION'], (locationResult) => {
+                                    if (locationResult && locationResult[0] === 0) {
+                                        const sdkVersion = parseInt(plus.os.version);
+                                        if (sdkVersion >= 12) {
+                                            plus.android.requestPermissions(['android.permission.BLUETOOTH_SCAN', 'android.permission.BLUETOOTH_CONNECT'], (bluetoothResult) => {
+                                                if (bluetoothResult && bluetoothResult[0] === 0) {
+                                                    console.log('✅ Android 12+ 蓝牙权限申请成功');
+                                                }
+                                                resolve(true);
+                                            });
+                                        } else {
+                                            resolve(true);
+                                        }
+                                    } else {
+                                        showToast('位置权限受限，部分功能可能不可用', 'info');
+                                        resolve(true);
+                                    }
+                                });
+                            } else {
+                                showToast('蓝牙权限受限，但您仍可以尝试使用', 'info');
+                                resolve(true);
+                            }
+                        });
+                    } catch (error) {
+                        console.error('❌ 权限申请异常:', error);
+                        resolve(true);
+                    }
+                });
+            }
+            
+            // 检查蓝牙是否开启
+            async checkBluetoothEnabled() {
+                try {
+                    const isHBuilderX = window.plus && plus.bluetooth;
+                    
+                    if (isHBuilderX) {
+                        return new Promise((resolve) => {
+                            plus.bluetooth.getBluetoothAdapterState({
+                                success: (res) => {
+                                    const isEnabled = res.isEnabled || false;
+                                    console.log('🔷 蓝牙状态:', isEnabled ? '已开启' : '未开启');
+                                    resolve(isEnabled);
+                                },
+                                fail: (err) => {
+                                    console.error('❌ 获取蓝牙状态失败:', err);
+                                    resolve(false);
+                                }
+                            });
+                        });
+                    } else if (navigator.bluetooth) {
+                        try {
+                            const adapter = await navigator.bluetooth.getAvailability();
+                            console.log('🔷 Web蓝牙可用状态:', adapter);
+                            return adapter;
+                        } catch (error) {
+                            console.warn('⚠️ 无法获取Web蓝牙状态，假设可用');
+                            return true;
+                        }
+                    } else {
+                        console.warn('⚠️ 无法检测蓝牙状态');
+                        return false;
+                    }
+                } catch (error) {
+                    console.error('❌ 检查蓝牙状态失败:', error);
+                    return false;
+                }
+            }
+            
+            // 使用Web Bluetooth API搜索设备
+            async searchDevicesWithWebBluetooth() {
+                try {
+                    const options = {
+                        acceptAllDevices: true,
+                        optionalServices: [this.config.serviceUuid]
+                    };
+                    
+                    const device = await navigator.bluetooth.requestDevice(options);
+                    
+                    if (device) {
+                        this.device = device;
+                        console.log('📱 找到Web蓝牙设备:', device.name || '未知设备', 'ID:', device.id);
+                        return [device];
+                    }
+                    
+                    return [];
+                } catch (error) {
+                    console.error('❌ Web Bluetooth搜索失败:', error);
+                    throw error;
+                }
+            }
+            
+            // 使用HBuilder X plus API搜索设备
+            async searchDevicesWithPlus() {
+                try {
+                    return new Promise((resolve, reject) => {
+                        plus.bluetooth.startBluetoothDevicesDiscovery({
+                            allowDuplicatesKey: false,
+                            success: function() {
+                                console.log('📱 开始搜索蓝牙设备...');
+                                
+                                plus.bluetooth.onBluetoothDeviceFound(function(res) {
+                                    const devices = res.devices || [];
+                                    console.log('🔍 发现设备数量:', devices.length);
+                                    
+                                    plus.bluetooth.stopBluetoothDevicesDiscovery({
+                                        success: function() {
+                                            console.log('🛑 停止搜索设备');
+                                            resolve(devices);
+                                        },
+                                        fail: function(err) {
+                                            console.error('❌ 停止搜索失败:', err);
+                                            resolve(devices);
+                                        }
+                                    });
+                                });
+                                
+                                setTimeout(() => {
+                                    plus.bluetooth.stopBluetoothDevicesDiscovery({
+                                        success: function() {
+                                            console.log('⏱️ 搜索超时，自动停止');
+                                            resolve([]);
+                                        },
+                                        fail: function(err) {
+                                            console.error('❌ 停止搜索失败:', err);
+                                            resolve([]);
+                                        }
+                                    });
+                                }, 30000);
+                            },
+                            fail: function(err) {
+                                console.error('❌ 开始搜索失败:', err);
+                                reject(new Error('搜索蓝牙设备失败: ' + JSON.stringify(err)));
+                            }
+                        });
+                    });
+                } catch (error) {
+                    console.error('❌ HBuilder X蓝牙搜索失败:', error);
+                    throw error;
+                }
+            }
+            
+            // 连接设备
+            async connectToDevice() {
+                try {
+                    if (!this.device) {
+                        throw new Error('未选择设备');
+                    }
+                    
+                    const isHBuilderX = window.plus && plus.bluetooth;
+                    
+                    if (isHBuilderX) {
+                        console.log('🔗 在HBuilder X环境中连接设备:', this.device.name || '未知设备');
+                        const success = await this.connectDeviceWithPlus();
+                        if (success) {
+                            this.resetDataToDefault();
+                            this.startKeepAlive(); // 【修复】启动保活
+                        }
+                        return success;
+                    } else if (this.device.gatt) {
+                        console.log('🔗 在Web环境中连接设备:', this.device.name || '未知设备');
+                        const success = await this.connectDeviceWithWebBluetooth();
+                        if (success) {
+                            this.resetDataToDefault();
+                            this.startKeepAlive(); // 【修复】启动保活
+                        }
+                        return success;
+                    } else {
+                        throw new Error('当前设备不支持连接，请选择有效的蓝牙设备');
+                    }
+                } catch (error) {
+                    console.error('❌ 连接设备失败:', error);
+                    this.isConnected = false;
+                    throw error;
+                }
+            }
+            
+            // 使用Web Bluetooth API连接设备
+            async connectDeviceWithWebBluetooth() {
+                try {
+                    const server = await this.device.gatt.connect();
+                    this.server = server;
+                    
+                    const service = await server.getPrimaryService(this.config.serviceUuid);
+                    const characteristic = await service.getCharacteristic(this.config.characteristicUuid);
+                    this.characteristic = characteristic;
+                    
+                    await characteristic.startNotifications();
+                    characteristic.addEventListener('characteristicvaluechanged', this.handleDataReceived.bind(this));
+                    this.device.addEventListener('gattserverdisconnected', this.handleDisconnection.bind(this));
+                    
+                    this.isConnected = true;
+                    console.log('✅ Web蓝牙连接成功!');
+                    
+                    return true;
+                } catch (error) {
+                    console.error('❌ Web蓝牙连接失败:', error);
+                    throw error;
+                }
+            }
+            
+            // 使用HBuilder X plus API连接设备
+            async connectDeviceWithPlus() {
+                try {
+                    return new Promise((resolve, reject) => {
+                        plus.bluetooth.createBLEConnection({
+                            deviceId: this.device.deviceId,
+                            success: (res) => {
+                                console.log('✅ HBuilder X蓝牙连接成功!', res);
+                                
+                                plus.bluetooth.getBLEDeviceServices({
+                                    deviceId: this.device.deviceId,
+                                    success: (servicesRes) => {
+                                        console.log('📋 获取服务成功:', servicesRes.services);
+                                        this.isConnected = true;
+                                        this.connectedDeviceId = this.device.deviceId;
+                                        resolve(true);
+                                    },
+                                    fail: (err) => {
+                                        console.error('❌ 获取服务失败:', err);
+                                        reject(new Error('获取设备服务失败: ' + JSON.stringify(err)));
+                                    }
+                                });
+                            },
+                            fail: (err) => {
+                                console.error('❌ HBuilder X蓝牙连接失败:', err);
+                                reject(new Error('连接设备失败: ' + JSON.stringify(err)));
+                            }
+                        });
+                    });
+                } catch (error) {
+                    console.error('❌ HBuilder X连接失败:', error);
+                    throw error;
+                }
+            }
+            
+            // 断开连接
+            async disconnect() {
+                try {
+                    this.stopKeepAlive(); // 停止保活
+                    
+                    if (this.characteristic) {
+                        this.characteristic.removeEventListener('characteristicvaluechanged', this.handleDataReceived);
+                        try {
+                            await this.characteristic.stopNotifications();
+                        } catch (e) {}
+                    }
+                    
+                    if (this.device) {
+                        this.device.removeEventListener('gattserverdisconnected', this.handleDisconnection);
+                        if (this.device.gatt.connected) {
+                            await this.device.gatt.disconnect();
+                        }
+                    }
+                    
+                    this.resetConnection();
+                    console.log('📴 蓝牙连接已断开');
+                    return true;
+                } catch (error) {
+                    console.error('❌ 断开连接失败:', error);
+                    this.resetConnection();
+                    throw error;
+                }
+            }
+            
+            // 发送命令
+            async sendCommand(command) {
+                try {
+                    if (!this.isConnected || !this.characteristic) {
+                        console.warn('⚠️ 未连接到设备，无法发送命令');
+                        return false;
+                    }
+                    
+                    const commandStr = String(command);
+                    const encoder = new TextEncoder();
+                    const data = encoder.encode(commandStr);
+                    
+                    await this.characteristic.writeValue(data);
+                    console.log('📤 发送命令:', commandStr);
+                    return true;
+                } catch (error) {
+                    console.error('❌ 发送命令失败:', error);
+                    return false;
+                }
+            }
+            
+            // 处理数据接收
+            handleDataReceived(event) {
+                try {
+                    const value = event.target.value;
+                    const text = new TextDecoder().decode(value);
+                    this.lastHeartbeatTime = Date.now();
+                    
+                    this.receiveBuffer += text;
+                    const lines = this.receiveBuffer.split('\n');
+                    this.receiveBuffer = lines.pop();
+                    
+                    lines.forEach(line => {
+                        if (line.trim()) {
+                            console.log(`📥 收到数据: ${line.trim()}`);
+                            const dataDisplay = document.getElementById('data-display');
+                            if (dataDisplay) {
+                                const timestamp = new Date().toLocaleTimeString();
+                                const dataLine = document.createElement('div');
+                                dataLine.className = 'mb-1';
+                                dataLine.innerHTML = `<span class="text-gray-400">[${timestamp}]</span> ${line.trim()}`;
+                                dataDisplay.appendChild(dataLine);
+                                dataDisplay.scrollTop = dataDisplay.scrollHeight;
+                                
+                                if (dataDisplay.children.length > 50) {
+                                    dataDisplay.removeChild(dataDisplay.firstChild);
+                                }
+                            }
+                            
+                            try {
+                                dataParser.parseLine(line.trim());
+                            } catch (parseError) {
+                                console.warn('⚠️ 解析单行数据时遇到问题');
+                            }
+                        }
+                    });
+                } catch (error) {
+                    console.warn('⚠️ 处理数据时遇到问题');
+                }
+            }
+            
+            // 处理断开连接
+            handleDisconnection() {
+                console.log('📴 设备已断开连接');
+                this.isConnected = false;
+                this.server = null;
+                this.characteristic = null;
+                this.receiveBuffer = '';
+                this.stopKeepAlive();
+                
+                updateConnectionUI();
+                showToast('设备已断开连接，点击搜索重新连接', 'warning');
+            }
+            
+            // 重置连接状态
+            resetConnection() {
+                this.isConnected = false;
+                this.server = null;
+                this.characteristic = null;
+                this.receiveBuffer = '';
+                if (this.connectionTimeout) clearTimeout(this.connectionTimeout);
+                this.stopKeepAlive();
+            }
+            
+            // 重置数据到默认状态
+            resetDataToDefault() {
+                console.log('🔄 重置数据到默认状态');
+                if (window.dataParser) {
+                    dataParser.data = {
+                        attitude: { pitch: 0, roll: 0 },
+                        fall: { isFall: false, count: 0, time: '00:00:00' },
+                        environment: { temperature: 0, humidity: 0 },
+                        distance: 0,
+                        alcohol: { raw: 0, voltage: 0, isAlarm: false }
+                    };
+                    
+                    const elements = [
+                        { id: 'pitch-value', value: '0°' },
+                        { id: 'roll-value', value: '0°' },
+                        { id: 'temperature-value', value: '0°C' },
+                        { id: 'humidity-value', value: '0%' },
+                        { id: 'distance-value', value: '0 cm' },
+                        { id: 'alcohol-value', value: '0' },
+                        { id: 'fall-count', value: '0' }
+                    ];
+                    
+                    elements.forEach(el => {
+                        const element = document.getElementById(el.id);
+                        if (element) {
+                            element.textContent = el.value;
+                            element.className = 'data-value text-success';
+                        }
+                    });
+                    
+                    const alarmElement = document.getElementById('alcohol-alarm');
+                    if (alarmElement) alarmElement.classList.add('hidden');
+                    
+                    if (window.updateDataChart) updateDataChart();
+                }
+            }
+        }
+
+        // 数据解析器类
+        class DataParser {
+            constructor() {
+                this.data = {
+                    attitude: { pitch: 0, roll: 0 },
+                    fall: { isFall: false, count: 0, time: '00:00:00' },
+                    environment: { temperature: 0, humidity: 0 },
+                    distance: 0,
+                    alcohol: { raw: 0, voltage: 0, isAlarm: false }
+                };
+                
+                // 用于跟踪跌倒状态变化
+                this.previousFallState = false;
+                
+                // 用于自动阈值调整的数据收集
+                this.dataHistory = {
+                    pitch: [],
+                    roll: []
+                };
+                this.maxHistoryLength = 100; // 最大历史数据长度
+            }
+            
+            // 解析行数据
+            parseLine(line) {
+                try {
+                    // 显示数据到数据页面
+                    this.displayData(line);
+                    
+                    if (line.startsWith('[Attitude]')) {
+                        this.parseAttitude(line);
+                    } else if (line.startsWith('[Fall]')) {
+                        this.parseFall(line);
+                    } else if (line.startsWith('[Env]')) {
+                        this.parseEnvironment(line);
+                    } else if (line.startsWith('[Distance]')) {
+                        this.parseDistance(line);
+                    } else if (line.startsWith('[Alcohol]')) {
+                        this.parseAlcohol(line);
+                    } else if (line.startsWith('[WARNING]')) {
+                        this.parseWarning(line);
+                    }
+                } catch (error) {
+                    console.error('❌ 解析数据失败:', error);
+                }
+            }
+            
+            // 显示数据到数据页面（优化版本）
+            displayData(data) {
+                const dataDisplay = document.getElementById('data-display');
+                if (!dataDisplay) return;
+                
+                try {
+                    const now = new Date();
+                    const timeStr = now.toLocaleTimeString('zh-CN');
+                    const dataLine = document.createElement('div');
+                    dataLine.className = 'mb-1 border-b border-dark-lighter pb-1';
+                    
+                    // 中文解析和显示（优化版本）
+                    let displayText = data;
+                    let dataType = 'default';
+                    
+                    // 姿态数据解析
+                    if (data.startsWith('[Attitude]')) {
+                        const match = data.match(/P:([\d.]+),R:([\d.]+)/);
+                        if (match) {
+                            const pitch = parseFloat(match[1]);
+                            const roll = parseFloat(match[2]);
+                            const pitchStatus = Math.abs(pitch) > config.thresholds.pitch.danger ? 'text-danger' : Math.abs(pitch) > config.thresholds.pitch.warning ? 'text-warning' : 'text-success';
+                            const rollStatus = Math.abs(roll) > config.thresholds.pitch.danger ? 'text-danger' : Math.abs(roll) > config.thresholds.pitch.warning ? 'text-warning' : 'text-success';
+                            
+                            displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-primary">姿态数据</span>: 俯仰角 <span class="${pitchStatus}">${pitch.toFixed(1)}°</span>, 横滚角 <span class="${rollStatus}">${roll.toFixed(1)}°</span>`;
+                            dataType = 'attitude';
+                        }
+                    }
+                    // 跌倒状态解析
+                    else if (data.startsWith('[Fall]')) {
+                        const match = data.match(/F:(\d+),FC:(\d+)T:(\d+:\d+:\d+)/);
+                        if (match) {
+                            const isFall = match[1] === '1';
+                            const fallCount = match[2];
+                            const duration = match[3];
+                            const statusClass = isFall ? 'text-danger font-bold' : 'text-success';
+                            const statusText = isFall ? '跌倒' : '正常';
+                            
+                            displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-warning">跌倒状态</span>: <span class="${statusClass}">${statusText}</span>, 跌倒次数 ${fallCount}, 持续时间 ${duration}`;
+                            dataType = 'fall';
+                        }
+                    }
+                    // 环境数据解析
+                    else if (data.startsWith('[Env]')) {
+                        const match = data.match(/Temp:(\d+)C,Humi:(\d+)%RH/);
+                        if (match) {
+                            const temp = parseInt(match[1]);
+                            const humi = parseInt(match[2]);
+                            const tempStatus = temp > 35 ? 'text-danger' : temp > 28 ? 'text-warning' : 'text-success';
+                            const humiStatus = humi > 80 ? 'text-warning' : humi < 30 ? 'text-warning' : 'text-success';
+                            
+                            displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-secondary">环境数据</span>: 温度 <span class="${tempStatus}">${temp}°C</span>, 湿度 <span class="${humiStatus}">${humi}%</span>`;
+                            dataType = 'env';
+                        }
+                    }
+                    // 距离数据解析
+                    else if (data.startsWith('[Distance]')) {
+                        const match = data.match(/Dist:(\d+) cm/);
+                        if (match) {
+                            const distance = parseInt(match[1]);
+                            const distanceStatus = distance < 10 ? 'text-danger' : distance < 30 ? 'text-warning' : 'text-success';
+                            
+                            displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-info">距离数据</span>: <span class="${distanceStatus}">${distance} cm</span>`;
+                            dataType = 'distance';
+                        }
+                    }
+                    // 酒精检测解析
+                    else if (data.startsWith('[Alcohol]')) {
+                        const match = data.match(/Raw:(\d+),Volt:(\d+)mV,Alarm:(\d+)/);
+                        if (match) {
+                            const rawValue = parseInt(match[1]);
+                            const voltage = parseInt(match[2]);
+                            const isAlarm = match[3] === '1';
+                            const statusClass = isAlarm ? 'text-danger font-bold' : 'text-success';
+                            const statusText = isAlarm ? '报警' : '正常';
+                            
+                            displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-danger">酒精检测</span>: 原始值 <span class="${statusClass}">${rawValue}</span>, 电压 ${voltage}mV, 状态 <span class="${statusClass}">${statusText}</span>`;
+                            dataType = 'alcohol';
+                        }
+                    }
+                    // 警告信息解析
+                    else if (data.startsWith('[WARNING]')) {
+                        const warningText = data.replace('[WARNING]', '').trim();
+                        displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-danger font-bold">警告</span>: ${warningText}`;
+                        dataType = 'warning';
+                    }
+                    // WQ数据解析
+                    else if (data.startsWith('[WQ]')) {
+                        const match = data.match(/Value:(\d+)/);
+                        if (match) {
+                            const wqValue = parseInt(match[1]);
+                            const wqStatus = wqValue > config.thresholds.wq.danger ? 'text-danger font-bold' : wqValue > config.thresholds.wq.warning ? 'text-warning' : 'text-success';
+                            
+                            displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-accent">WQ数据</span>: <span class="${wqStatus}">${wqValue}</span>`;
+                            dataType = 'wq';
+                        }
+                    }
+                    // 其他数据
+                    else {
+                        displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-gray-300">${data}</span>`;
+                    }
+                    
+                    // 添加数据类型标识
+                    dataLine.setAttribute('data-type', dataType);
+                    dataLine.innerHTML = displayText;
+                    
+                    // 清除初始提示
+                    if (dataDisplay.querySelector('.text-gray-400') && dataDisplay.children.length === 1) {
+                        dataDisplay.innerHTML = '';
+                    }
+                    
+                    // 添加新数据
+                    dataDisplay.appendChild(dataLine);
+                    
+                    // 保持滚动到底部
+                    dataDisplay.scrollTop = dataDisplay.scrollHeight;
+                    
+                    // 限制显示行数，防止内存占用过大
+                    if (dataDisplay.children.length > 100) {
+                        dataDisplay.removeChild(dataDisplay.firstChild);
+                    }
+                    
+                } catch (error) {
+                    console.warn('⚠️ 显示数据时遇到问题:', error);
+                    // 即使出错也继续显示原始数据
+                    const now = new Date();
+                    const timeStr = now.toLocaleTimeString('zh-CN');
+                    const dataLine = document.createElement('div');
+                    dataLine.className = 'mb-1 border-b border-dark-lighter pb-1 text-gray-300';
+                    dataLine.innerHTML = `<span class="text-gray-400">[${timeStr}]</span> ${data}`;
+                    dataDisplay.appendChild(dataLine);
+                    dataDisplay.scrollTop = dataDisplay.scrollHeight;
+                }
+            }
+            
+            // 解析姿态数据
+            parseAttitude(line) {
+                // 更宽松的正则表达式，允许空格和不同的分隔符
+                const match = line.match(/P:\s*([\d.-]+)\s*[,;]\s*R:\s*([\d.-]+)/);
+                if (match) {
+                    this.data.attitude.pitch = parseFloat(match[1]);
+                    this.data.attitude.roll = parseFloat(match[2]);
+                    
+                    // 更新UI
+                    const pitchElement = document.getElementById('pitch-value');
+                    const rollElement = document.getElementById('roll-value');
+                    
+                    pitchElement.textContent = `${this.data.attitude.pitch.toFixed(1)}°`;
+                    rollElement.textContent = `${this.data.attitude.roll.toFixed(1)}°`;
+                    
+                    // 阈值检查和颜色变化
+                    this.updateValueColor(pitchElement, this.data.attitude.pitch, 'pitch');
+                    this.updateValueColor(rollElement, this.data.attitude.roll, 'roll');
+                    
+                    // 收集数据用于自动阈值调整
+                    if (config.thresholds.autoAdjust) {
+                        this.collectData('pitch', this.data.attitude.pitch);
+                        this.collectData('roll', this.data.attitude.roll);
+                        this.adjustThresholds();
+                    }
+                    
+                    // 检测跌倒
+                    this.detectFall(this.data.attitude.pitch, this.data.attitude.roll);
+                    
+                    // 更新图表
+                    updateDataChart();
+                }
+            }
+            
+            // 解析跌倒数据（优化版本）
+            parseFall(line) {
+                const match = line.match(/F:(\d),FC:(\d+)T:(\d{2}:\d{2}:\d{2})/);
+                if (match) {
+                    const isFall = parseInt(match[1]) === 1;
+                    const count = parseInt(match[2]);
+                    const time = match[3];
+                    
+                    // 更新本地数据
+                    this.data.fall.isFall = isFall;
+                    this.data.fall.count = count;
+                    this.data.fall.time = time;
+                    
+                    // 更新UI显示的跌倒次数
+                    const fallCountElement = document.getElementById('total-fall-count');
+                    if (fallCountElement) {
+                        fallCountElement.textContent = count;
+                    }
+                    
+                    // 只有当从非跌倒状态变为跌倒状态时才记录跌倒事件
+                    if (isFall && !this.previousFallState) {
+                        this.handleFallEvent(count, time);
+                    }
+                    
+                    // 更新前一次的跌倒状态
+                    this.previousFallState = isFall;
+                }
+            }
+            
+            // 解析环境数据（修复湿度显示）
+            parseEnvironment(line) {
+                try {
+                    // 更宽松的正则表达式，允许空格和不同的格式
+                    const match = line.match(/Temp[:\s]*(\d+)[\sC°]*[,;\s]*Humi[:\s]*(\d+)[\s%RH]*/i);
+                    if (match) {
+                        this.data.environment.temperature = parseInt(match[1]);
+                        this.data.environment.humidity = parseInt(match[2]);
+                        
+                        // 更新温度UI
+                        const tempElement = document.getElementById('temperature-value');
+                        if (tempElement) {
+                            tempElement.textContent = `${this.data.environment.temperature}°C`;
+                            // 添加颜色指示
+                            if (this.data.environment.temperature > 35) {
+                                tempElement.className = 'data-value text-danger';
+                            } else if (this.data.environment.temperature > 28) {
+                                tempElement.className = 'data-value text-warning';
+                            } else {
+                                tempElement.className = 'data-value text-success';
+                            }
+                        }
+                        
+                        // 更新湿度UI（修复显示问题）
+                        const humidityElement = document.getElementById('humidity-value');
+                        if (humidityElement) {
+                            humidityElement.textContent = `${this.data.environment.humidity}%`;
+                            // 添加颜色指示
+                            if (this.data.environment.humidity > 80 || this.data.environment.humidity < 30) {
+                                humidityElement.className = 'data-value text-warning';
+                            } else {
+                                humidityElement.className = 'data-value text-success';
+                            }
+                        }
+                        
+                        console.log('🌡️ 环境数据更新:', this.data.environment);
+                    }
+                } catch (error) {
+                    console.warn('⚠️ 解析环境数据失败:', error);
+                }
+            }
+            
+            // 解析距离数据
+            parseDistance(line) {
+                // 更宽松的正则表达式，允许空格和不同的单位
+                const match = line.match(/Dist:?\s*(\d+)\s*(?:cm|mm|m)?/i);
+                if (match) {
+                    this.data.distance = parseInt(match[1]);
+                    
+                    // 更新UI
+                    document.getElementById('distance-value').textContent = `${this.data.distance} cm`;
+                    
+                    // 更新图表
+                    updateDataChart();
+                }
+            }
+            
+            // 解析酒精浓度数据（新增完整实现）
+            parseAlcohol(line) {
+                try {
+                    // 匹配酒精浓度数据格式
+                    const match = line.match(/Raw:(\d+),Volt:(\d+)mV,Alarm:(\d+)/);
+                    if (match) {
+                        const rawValue = parseInt(match[1]);
+                        const voltage = parseInt(match[2]);
+                        const isAlarm = match[3] === '1';
+                        
+                        // 更新数据
+                        this.data.alcohol.raw = rawValue;
+                        this.data.alcohol.voltage = voltage;
+                        this.data.alcohol.isAlarm = isAlarm;
+                        
+                        // 更新UI显示
+                        const alcoholElement = document.getElementById('alcohol-value');
+                        if (alcoholElement) {
+                            alcoholElement.textContent = rawValue;
+                            
+                            // 根据浓度设置颜色
+                            if (isAlarm) {
+                                alcoholElement.className = 'data-value text-danger';
+                            } else if (rawValue > 800) {
+                                alcoholElement.className = 'data-value text-warning';
+                            } else {
+                                alcoholElement.className = 'data-value text-success';
+                            }
+                        }
+                        
+                        // 显示酒精报警状态
+                        const alarmElement = document.getElementById('alcohol-alarm');
+                        if (alarmElement) {
+                            if (isAlarm) {
+                                alarmElement.classList.remove('hidden');
+                            } else {
+                                alarmElement.classList.add('hidden');
+                            }
+                        }
+                        
+                        console.log('🍷 酒精数据更新:', this.data.alcohol);
+                    }
+                } catch (error) {
+                    console.warn('⚠️ 解析酒精数据失败:', error);
+                }
+            }
+
+            // 解析警告信息
+            parseWarning(line) {
+                console.warn('⚠️ 警告:', line.substring(9));
+            }
+            
+            // 检测跌倒（优化版本）
+            detectFall(pitch, roll) {
+                try {
+                    // 跌倒检测算法：姿态角超过阈值
+                    const fallThreshold = config.thresholds.pitch.danger;
+                    
+                    if (Math.abs(pitch) > fallThreshold || Math.abs(roll) > fallThreshold) {
+                        console.log(`⚠️ 检测到可能跌倒: 俯仰角=${pitch.toFixed(1)}°, 横滚角=${roll.toFixed(1)}°`);
+                        
+                        // 清除之前的超时定时器
+                        if (fallDetectionTimeout) {
+                            clearTimeout(fallDetectionTimeout);
+                        }
+                        
+                        // 设置更合理的超时时间（3秒）
+                        fallDetectionTimeout = setTimeout(() => {
+                            // 这里不直接调用handleFallEvent，而是等待蓝牙数据中的跌倒状态
+                            // 避免重复记录跌倒事件
+                            console.log('⏰ 跌倒检测超时，等待蓝牙数据确认');
+                        }, 3000);
+                    } else {
+                        // 如果姿态恢复正常，清除超时定时器
+                        if (fallDetectionTimeout) {
+                            clearTimeout(fallDetectionTimeout);
+                            fallDetectionTimeout = null;
+                        }
+                    }
+                } catch (error) {
+                    console.error('❌ 跌倒检测失败:', error);
+                }
+            }
+            
+            // 处理跌倒事件（优化版本）
+            handleFallEvent(fallCount, duration) {
+                try {
+                    // 获取当前时间
+                    const now = new Date();
+                    const timestamp = now.toISOString();
+                    
+                    // 创建详细的跌倒记录
+                    const fallRecord = {
+                        id: Date.now(),
+                        timestamp: timestamp,
+                        localTime: now.toLocaleString('zh-CN'),
+                        type: '自动检测',
+                        status: '已记录',
+                        fallCount: fallCount,
+                        duration: duration,
+                        deviceInfo: navigator.userAgent
+                    };
+                    
+                    // 添加到日志
+                    addFallLog(fallRecord);
+                    
+                    console.log('🚨 记录跌倒事件:', fallRecord);
+                    
+                    // 显示通知
+                    showToast(`检测到跌倒事件！跌倒次数: ${fallCount}, 持续时间: ${duration}`, 'danger');
+                    
+                } catch (error) {
+                    console.error('❌ 处理跌倒事件失败:', error);
+                }
+            }
+            
+            // 更新值的颜色
+            updateValueColor(element, value, type) {
+                // 移除所有颜色类
+                element.classList.remove('text-primary', 'text-warning', 'text-danger');
+                
+                // 获取配置的阈值
+                const threshold = config.thresholds[type];
+                const warningThreshold = threshold.warning;
+                const dangerThreshold = threshold.danger;
+                
+                // 根据阈值设置颜色
+                const absValue = Math.abs(value);
+                if (absValue >= dangerThreshold) {
+                    element.classList.add('text-danger');
+                } else if (absValue >= warningThreshold) {
+                    element.classList.add('text-warning');
+                } else {
+                    element.classList.add('text-primary');
+                }
+            }
+            
+            // 收集数据用于自动阈值调整
+            collectData(type, value) {
+                const history = this.dataHistory[type];
+                history.push(Math.abs(value));
+                
+                // 保持历史数据长度限制
+                if (history.length > this.maxHistoryLength) {
+                    history.shift();
+                }
+            }
+            
+            // 自动调整阈值
+            adjustThresholds() {
+                // 计算每个类型的统计数据
+                Object.keys(this.dataHistory).forEach(type => {
+                    const history = this.dataHistory[type];
+                    if (history.length < 20) return; // 数据不足，不进行调整
+                    
+                    // 计算统计数据
+                    const sorted = [...history].sort((a, b) => a - b);
+                    const mean = history.reduce((sum, val) => sum + val, 0) / history.length;
+                    const stdDev = Math.sqrt(history.reduce((sum, val) => sum + Math.pow(val - mean, 2), 0) / history.length);
+                    const median = sorted[Math.floor(sorted.length / 2)];
+                    const q3 = sorted[Math.floor(sorted.length * 0.75)];
+                    const max = Math.max(...history);
+                    
+                    // 根据统计数据设置阈值
+                    let warningThreshold, dangerThreshold;
+                    
+                    // 姿态角的调整策略
+                    warningThreshold = Math.max(mean + 1.5 * stdDev, q3 * 1.2, 20);
+                    dangerThreshold = Math.max(mean + 2.5 * stdDev, max * 0.8, 30);
+                    
+                    // 更新配置（取整数值）
+                    config.thresholds[type].warning = Math.round(warningThreshold);
+                    config.thresholds[type].danger = Math.round(dangerThreshold);
+                    
+                    // 确保危险阈值大于警告阈值
+                    if (config.thresholds[type].danger <= config.thresholds[type].warning) {
+                        config.thresholds[type].danger = config.thresholds[type].warning + 10;
+                    }
+                });
+                
+                // 更新UI显示
+                if (document.getElementById('auto-adjust').checked) {
+                    document.getElementById('attitude-warning').value = config.thresholds.pitch.warning;
+                    document.getElementById('attitude-danger').value = config.thresholds.pitch.danger;
+                }
+            }
+        }
+
+        // 日志管理器类
+        class LogManager {
+            constructor() {
+                this.logs = this.loadLogs();
+            }
+            
+            // 添加日志
+            addLog(log) {
+                this.logs.unshift(log); // 添加到开头
+                
+                // 限制日志数量，防止超出localStorage容量
+                const maxLogs = 500; // 最多保存500条日志
+                if (this.logs.length > maxLogs) {
+                    this.logs = this.logs.slice(0, maxLogs);
+                }
+                
+                this.saveLogs();
+            }
+            
+            // 获取日志
+            getLogs() {
+                return this.logs;
+            }
+            
+            // 清除日志
+            clearLogs() {
+                this.logs = [];
+                this.saveLogs();
+            }
+            
+            // 加载日志
+            loadLogs() {
+                try {
+                    const stored = localStorage.getItem('bluetoothLogs');
+                    return stored ? JSON.parse(stored) : [];
+                } catch (error) {
+                    console.error('❌ 加载日志失败:', error);
+                    return [];
+                }
+            }
+            
+            // 保存日志
+            saveLogs() {
+                try {
+                    localStorage.setItem('bluetoothLogs', JSON.stringify(this.logs));
+                } catch (error) {
+                    console.error('❌ 保存日志失败:', error);
+                }
+            }
+        }
+
+        // 切换页面
+        function switchPage(pageId) {
+            // 隐藏所有页面
+            document.querySelectorAll('.page').forEach(page => {
+                page.classList.add('hidden');
+            });
+            
+            // 显示目标页面
+            document.getElementById(pageId).classList.remove('hidden');
+            currentPage = pageId;
+            
+            // 更新导航栏
+            document.querySelectorAll('.nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            const navIndex = ['connect-page', 'control-page', 'data-log-page'].indexOf(pageId);
+            if (navIndex >= 0) {
+                document.querySelectorAll('.nav-item')[navIndex].classList.add('active');
+            }
+            
+            // 如果切换到控制页面，更新图表
+            if (pageId === 'control-page' && dataChart) {
+                dataChart.resize();
+            }
+            
+            // 如果切换到数据日志页面，更新日志显示
+            if (pageId === 'data-log-page') {
+                updateFallLogUI();
+            }
+        }
+
+        // 搜索设备（优化版本）
+        async function searchDevices() {
+            try {
+                document.getElementById('search-btn').disabled = true;
+                document.getElementById('search-btn').innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 搜索中...';
+                
+                // 清除之前的搜索结果
+                const container = document.getElementById('devices-container');
+                container.innerHTML = `
+                    <div class="text-center py-4 text-gray-400">
+                        <i class="fa fa-search text-xl mb-2"></i>
+                        <p>正在搜索蓝牙设备...</p>
+                        <p class="text-xs mt-1">请稍候...</p>
+                    </div>
+                `;
+                document.getElementById('device-list').classList.remove('hidden');
+                
+                // 强制重置蓝牙管理器状态
+                if (bluetoothManager && bluetoothManager.device) {
+                    bluetoothManager.device = null;
+                }
+                
+                // 移除搜索超时处理，让搜索可以持续进行
+                const devices = await bluetoothManager.searchDevices();
+                
+                container.innerHTML = '';
+                
+                if (devices.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-gray-400">
+                            <i class="fa fa-info-circle text-xl mb-2"></i>
+                            <p>未找到任何蓝牙设备</p>
+                            <p class="text-xs mt-1">请确保设备已开启并处于配对模式</p>
+                        </div>
+                    `;
+                    showToast('未找到蓝牙设备', 'info');
+                } else {
+                    devices.forEach(device => {
+                        const deviceElement = document.createElement('div');
+                        deviceElement.className = 'card cursor-pointer hover:border-primary transition-colors mb-2';
+                        deviceElement.innerHTML = `
+                            <div class="flex items-center justify-between">
+                                <div>
+                                    <div class="font-bold">${device.name || '未知设备'}</div>
+                                    <div class="text-sm text-gray-400">${device.id}</div>
+                                </div>
+                                <button onclick="connectToSpecificDevice('${device.id}')" 
+                                    class="px-3 py-1 bg-primary text-dark rounded-lg text-sm font-bold hover:bg-opacity-80 transition">
+                                    连接
+                                </button>
+                            </div>
+                        `;
+                        container.appendChild(deviceElement);
+                    });
+                    
+                    showToast(`找到 ${devices.length} 个蓝牙设备`, 'success');
+                }
+                
+            } catch (error) {
+                console.error('❌ 搜索设备失败:', error);
+                
+                // 更友好的错误提示
+                const container = document.getElementById('devices-container');
+                container.innerHTML = `
+                    <div class="text-center py-4 text-danger">
+                        <i class="fa fa-exclamation-circle text-xl mb-2"></i>
+                        <p>搜索失败: ${error.message}</p>
+                        <p class="text-xs mt-1">请检查蓝牙权限或重启应用</p>
+                    </div>
+                `;
+                document.getElementById('device-list').classList.remove('hidden');
+                
+                showToast('搜索失败，请重试', 'error');
+            } finally {
+                document.getElementById('search-btn').disabled = false;
+                document.getElementById('search-btn').innerHTML = '<i class="fa fa-search mr-2"></i> 搜索设备';
+            }
+        }
+
+        // 连接特定设备
+        async function connectToSpecificDevice(deviceId) {
+            try {
+                // 显示连接中状态
+                document.getElementById('connection-status').classList.add('hidden');
+                document.getElementById('device-list').classList.add('hidden');
+                document.getElementById('connecting').classList.remove('hidden');
+                
+                // 调用连接方法
+                const success = await bluetoothManager.connectToDevice(deviceId);
+                
+                if (success) {
+                    // 更新连接状态
+                    updateConnectionUI();
+                    
+                    // 切换到控制页面
+                    switchPage('control-page');
+                    
+                    showToast('连接成功！', 'success');
+                } else {
+                    showToast('连接失败，请重试', 'error');
+                    
+                    // 恢复UI
+                    document.getElementById('connection-status').classList.remove('hidden');
+                    document.getElementById('connecting').classList.add('hidden');
+                }
+                
+            } catch (error) {
+                console.error('❌ 连接设备失败:', error);
+                showToast('连接失败，请重试', 'error');
+                
+                // 恢复UI
+                document.getElementById('connection-status').classList.remove('hidden');
+                document.getElementById('connecting').classList.add('hidden');
+            }
+        }
+
+        // 断开连接
+        // 断开连接（修复版）
+        async function disconnectFromDevice() {
+            try {
+                // 强制重置蓝牙状态
+                bluetoothManager.forceReset();
+                updateConnectionUI();
+                showToast('已断开连接，可重新搜索', 'info');
+            } catch (error) {
+                console.error('❌ 断开连接失败:', error);
+                bluetoothManager.forceReset();
+                updateConnectionUI();
+                showToast('已强制重置蓝牙状态', 'warning');
+            }
+        }
+
+        // Page Visibility API 监听 - 优化安卓后台连接稳定性
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                console.log('📱 应用进入后台，暂停心跳检测');
+                if (bluetoothManager) {
+                    bluetoothManager.pauseHeartbeat();
+                }
+            } else {
+                console.log('📱 应用回到前台，恢复心跳检测');
+                if (bluetoothManager) {
+                    bluetoothManager.resumeHeartbeat();
+                }
+            }
+        });
+
+        // 更新连接UI
+        function updateConnectionUI() {
+            const isConnected = bluetoothManager.isConnected;
+            
+            if (isConnected) {
+                document.getElementById('connection-status').innerHTML = `
+                    <div class="text-center py-6">
+                        <div class="text-4xl text-primary mb-4">
+                            <i class="fa fa-bluetooth"></i>
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">已连接</h3>
+                        <p class="text-gray-400 mb-4">设备名称: ${bluetoothManager.device.name}</p>
+                        
+                        <div class="flex flex-col space-y-3">
+                            <button onclick="disconnectFromDevice()" class="btn-danger">
+                                <i class="fa fa-times mr-2"></i> 断开连接
+                            </button>
+                            <button onclick="switchPage('control-page')" class="btn-primary">
+                                <i class="fa fa-sliders mr-2"></i> 开始控制
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('control-connection-status').innerHTML = `
+                    <i class="fa fa-bluetooth text-primary"></i>
+                    <span class="text-primary">已连接</span>
+                `;
+                
+                // 启用控制页面的所有按钮
+                enableControlButtons(true);
+                
+            } else {
+                document.getElementById('connection-status').innerHTML = `
+                    <div class="text-center py-6">
+                        <div class="text-4xl text-gray-400 mb-4">
+                            <i class="fa fa-bluetooth"></i>
+                        </div>
+                        <h3 class="text-lg font-bold mb-2">未连接</h3>
+                        <p class="text-gray-400 mb-4">请点击下方按钮搜索并连接设备</p>
+                        
+                        <div class="flex flex-col space-y-3">
+                            <button onclick="searchDevices()" class="btn-primary">
+                                <i class="fa fa-search mr-2"></i> 搜索设备
+                            </button>
+                            <button onclick="showConfig()" class="btn-secondary">
+                                <i class="fa fa-cog mr-2"></i> 配置设置
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('control-connection-status').innerHTML = `
+                    <i class="fa fa-bluetooth text-warning"></i>
+                    <span class="text-warning">未连接</span>
+                `;
+                
+                // 禁用控制页面的所有按钮
+                enableControlButtons(false);
+            }
+            
+            document.getElementById('device-list').classList.add('hidden');
+            document.getElementById('connecting').classList.add('hidden');
+            document.getElementById('connection-status').classList.remove('hidden');
+        }
+        
+        // 启用或禁用控制页面的按钮
+        function enableControlButtons(enabled) {
+            const controlPage = document.getElementById('control-page');
+            if (!controlPage) return;
+            
+            const buttons = controlPage.querySelectorAll('button[onclick*="sendCommand"]');
+            buttons.forEach(button => {
+                button.disabled = !enabled;
+                if (enabled) {
+                    button.classList.remove('opacity-50', 'cursor-not-allowed');
+                    button.classList.add('hover:bg-primary', 'hover:text-dark');
+                } else {
+                    button.classList.add('opacity-50', 'cursor-not-allowed');
+                    button.classList.remove('hover:bg-primary', 'hover:text-dark');
+                }
+            });
+        }
+
+        // 更新模式UI
+        function updateModeUI() {
+            document.getElementById('current-mode').textContent = currentMode === 'track' ? '循迹模式' : '遥控模式';
+            
+            const trackBtn = document.getElementById('track-mode-btn');
+            const controlBtn = document.getElementById('control-mode-btn');
+            
+            if (currentMode === 'track') {
+                trackBtn.classList.remove('bg-dark-lighter', 'text-white');
+                trackBtn.classList.add('bg-primary', 'text-dark');
+                controlBtn.classList.remove('bg-primary', 'text-dark');
+                controlBtn.classList.add('bg-dark-lighter', 'text-white');
+            } else {
+                controlBtn.classList.remove('bg-dark-lighter', 'text-white');
+                controlBtn.classList.add('bg-primary', 'text-dark');
+                trackBtn.classList.remove('bg-primary', 'text-dark');
+                trackBtn.classList.add('bg-dark-lighter', 'text-white');
+            }
+        }
+
+        // 切换模式
+        async function switchMode(mode) {
+            try {
+                if (mode === 'track') {
+                    await sendCommand('1');
+                } else {
+                    await sendCommand('2');
+                }
+            } catch (error) {
+                console.error('❌ 切换模式失败:', error);
+            }
+        }
+
+        // 长按控制变量
+        let pressInterval = null;
+        let currentPressCommand = null;
+
+        // 开始长按
+        function startPress(command) {
+            if (pressInterval) return;
+            
+            currentPressCommand = command;
+            console.log(`🎮 开始长按: ${command}`);
+            
+            // 立即发送一次命令
+            sendCommand(command);
+            
+            // 设置定时器，每200ms重发一次命令
+            pressInterval = setInterval(() => {
+                sendCommand(command);
+            }, 200);
+        }
+
+        // 结束长按
+        function endPress() {
+            if (pressInterval) {
+                clearInterval(pressInterval);
+                pressInterval = null;
+                console.log(`🎮 结束长按: ${currentPressCommand}`);
+                currentPressCommand = null;
+                
+                // 发送停止命令
+                sendCommand('S');
+            }
+        }
+
+        // 发送命令（增强稳定性版本）
+        async function sendCommand(command) {
+            try {
+                // 配置模式下直接返回，不执行发送命令
+                if (isConfigMode) {
+                    return;
+                }
+                
+                if (!bluetoothManager.isConnected) {
+                    showToast('请先连接设备', 'warning');
+                    switchPage('connect-page');
+                    return;
+                }
+                
+                // 确保命令是字符串格式
+                const commandStr = String(command);
+                
+                // 发送命令
+                await bluetoothManager.sendCommand(commandStr);
+                
+                // 处理特殊命令
+                if (commandStr === 'P') {
+                    // 暂停/恢复按钮UI更新
+                    const pauseBtn = document.getElementById('pause-btn');
+                    if (pauseBtn) {
+                        const isCurrentlyPaused = pauseBtn.innerHTML.includes('恢复');
+                        if (isCurrentlyPaused) {
+                            pauseBtn.innerHTML = '<i class="fa fa-pause mr-2"></i> 暂停';
+                            isPaused = false;
+                        } else {
+                            pauseBtn.innerHTML = '<i class="fa fa-play mr-2"></i> 恢复';
+                            isPaused = true;
+                        }
+                    }
+                } else if (commandStr === 'Z' || commandStr === 'C') {
+                    // 循迹PWM调整
+                    const currentPWM = parseInt(document.getElementById('pwm-value').textContent);
+                    const newPWM = commandStr === 'Z' ? Math.min(currentPWM + 5, 50) : Math.max(currentPWM - 5, 20);
+                    document.getElementById('pwm-value').textContent = newPWM;
+                    // 注意：根据STM32代码，不需要额外发送PWM指令
+                    // STM32代码中Z和C命令已经直接处理PWM调整
+                } else if (commandStr === 'Q' || commandStr === 'E') {
+                    // 速度调整
+                    const currentSpeed = parseInt(document.getElementById('speed-value').textContent);
+                    const newSpeed = commandStr === 'Q' ? Math.min(currentSpeed + 10, 90) : Math.max(currentSpeed - 10, 20);
+                    document.getElementById('speed-value').textContent = `${newSpeed}%`;
+                    // 注意：根据STM32代码，不需要额外发送SPEED指令
+                    // STM32代码中Q和E命令已经直接处理速度调整
+                } else if (commandStr === '1' || commandStr === '2') {
+                    // 模式切换命令
+                    currentMode = commandStr === '1' ? 'track' : 'control';
+                    updateModeUI();
+                    showToast(`已切换到${currentMode === 'track' ? '循迹' : '遥控'}模式`, 'success');
+                }
+                
+            } catch (error) {
+                console.error('❌ 发送命令失败:', error);
+                
+                // 更友好的错误处理
+                if (error.message.includes('disconnected') || error.message.includes('not connected')) {
+                    showToast('设备连接已断开，请重新连接', 'error');
+                    switchPage('connect-page');
+                } else if (error.message !== 'User cancelled') {
+                    showToast('发送失败，请重试', 'error');
+                }
+            }
+        }
+
+        // 发送AT命令
+        async function sendATCommand(command) {
+            try {
+                if (!bluetoothManager.isConnected) {
+                    showToast('请先连接设备', 'warning');
+                    switchPage('connect-page');
+                    return;
+                }
+                
+                await bluetoothManager.sendCommand(command);
+                showToast(`已发送: ${command}`, 'success');
+                
+            } catch (error) {
+                console.error('❌ 发送AT命令失败:', error);
+                showToast('发送失败，请重试', 'error');
+            }
+        }
+
+        // 手动发送数据
+        async function sendManualData() {
+            const input = document.getElementById('send-input');
+            const data = input.value.trim();
+            
+            if (!data) {
+                showToast('请输入要发送的数据', 'warning');
+                return;
+            }
+            
+            try {
+                if (!bluetoothManager.isConnected) {
+                    showToast('请先连接设备', 'warning');
+                    switchPage('connect-page');
+                    return;
+                }
+                
+                await bluetoothManager.sendCommand(data);
+                showToast('发送成功', 'success');
+                input.value = '';
+                
+            } catch (error) {
+                console.error('❌ 发送失败:', error);
+                showToast('发送失败，请重试', 'error');
+            }
+        }
+
+        // 发送手动命令
+        async function sendManualCommand(command) {
+            try {
+                if (!bluetoothManager.isConnected) {
+                    showToast('请先连接设备', 'warning');
+                    switchPage('connect-page');
+                    return;
+                }
+                
+                await bluetoothManager.sendCommand(command);
+                showToast(`已发送命令: ${command}`, 'success');
+                
+            } catch (error) {
+                console.error('❌ 发送命令失败:', error);
+                showToast('发送失败，请重试', 'error');
+            }
+        }
+
+        // 处理键盘按下
+        function handleKeyDown(event) {
+            if (!bluetoothManager.isConnected || currentPage !== 'control-page') return;
+            
+            switch(event.key.toLowerCase()) {
+                case 'w':
+                    sendCommand('W');
+                    break;
+                case 'a':
+                    sendCommand('A');
+                    break;
+                case 's':
+                    sendCommand('S');
+                    break;
+                case 'd':
+                    sendCommand('D');
+                    break;
+                case 'x':
+                    sendCommand('X');
+                    break;
+            }
+        }
+
+        // 处理键盘松开
+        function handleKeyUp(event) {
+            if (!bluetoothManager.isConnected || currentPage !== 'control-page') return;
+            
+            const key = event.key.toLowerCase();
+            if (key === 'w' || key === 'a' || key === 'd' || key === 'x') {
+                sendCommand('S');
+            }
+        }
+
+        // 检查蓝牙支持
+        function checkBluetoothSupport() {
+            if (!navigator.bluetooth) {
+                console.warn('⚠️ 当前浏览器不支持Web Bluetooth API');
+                
+                // 显示友好的提示，但不阻止用户继续使用
+                const modal = document.createElement('div');
+                modal.className = 'fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50 p-4';
+                modal.innerHTML = `
+                    <div class="bg-dark-light rounded-xl p-6 max-w-md w-full text-center">
+                        <div class="text-4xl mb-4">
+                            <i class="fa fa-info-circle text-primary"></i>
+                        </div>
+                        <h2 class="text-xl font-bold mb-2">蓝牙功能提示</h2>
+                        <p class="text-gray-300 mb-4">您的浏览器可能不完全支持Web Bluetooth API</p>
+                        <div class="bg-dark p-3 rounded-lg mb-4 text-left text-sm">
+                            <p class="mb-2"><i class="fa fa-check-circle text-success mr-2"></i> 推荐使用Chrome浏览器</p>
+                            <p class="mb-2"><i class="fa fa-check-circle text-success mr-2"></i> 或在HBuilder X中运行</p>
+                            <p><i class="fa fa-check-circle text-success mr-2"></i> 确保使用HTTPS连接</p>
+                        </div>
+                        <button onclick="this.parentElement.parentElement.remove()" class="btn-primary">
+                            继续使用
+                        </button>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+        }
+
+        // 显示Toast提示
+        function showToast(message, type = 'info') {
+            const toast = document.getElementById('toast');
+            const toastIcon = document.getElementById('toast-icon');
+            const toastMessage = document.getElementById('toast-message');
+            
+            // 设置图标和颜色
+            const iconMap = {
+                success: { icon: 'fa-check-circle', color: 'text-secondary' },
+                error: { icon: 'fa-times-circle', color: 'text-danger' },
+                warning: { icon: 'fa-exclamation-triangle', color: 'text-warning' },
+                info: { icon: 'fa-info-circle', color: 'text-primary' }
+            };
+            
+            const config = iconMap[type] || iconMap.info;
+            toastIcon.className = `fa ${config.icon} ${config.color}`;
+            toastMessage.textContent = message;
+            
+            // 显示Toast
+            toast.classList.remove('hidden');
+            
+            // 3秒后隐藏
+            setTimeout(() => {
+                toast.classList.add('hidden');
+            }, 3000);
+        }
+
+        // 同步网络时间
+        async function syncNetworkTime() {
+            // 显示同步中状态
+            const timeElement = document.getElementById('network-time');
+            if (timeElement) {
+                timeElement.textContent = '正在同步...';
+                timeElement.classList.remove('text-success', 'text-warning', 'text-danger');
+                timeElement.classList.add('text-primary');
+            }
+            
+            // 时间服务器列表（多个备选）
+            const timeServers = [
+                {
+                    name: 'WorldTimeAPI',
+                    url: 'https://worldtimeapi.org/api/timezone/Asia/Shanghai',
+                    parser: (data) => new Date(data.datetime)
+                },
+                {
+                    name: 'NTP API',
+                    url: 'https://api.mfapi.cn/time',
+                    parser: (data) => new Date(data.data)
+                },
+                {
+                    name: '阿里云',
+                    url: 'https://developer.aliyun.com/gw/alicloudapi/time',
+                    headers: { 'X-Ca-Key': '24690129' },
+                    parser: (data) => new Date(data.dateTime)
+                }
+            ];
+            
+            let success = false;
+            
+            // 尝试所有时间服务器
+            for (let i = 0; i < timeServers.length; i++) {
+                const server = timeServers[i];
+                try {
+                    console.log(`🕒 尝试从 ${server.name} 同步时间...`);
+                    
+                    const fetchOptions = {
+                        method: 'GET',
+                        timeout: 5000,
+                        headers: server.headers || {}
+                    };
+                    
+                    // 添加超时控制
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 5000);
+                    
+                    const response = await fetch(server.url, {
+                        ...fetchOptions,
+                        signal: controller.signal
+                    });
+                    
+                    clearTimeout(timeoutId);
+                    
+                    if (!response.ok) {
+                        throw new Error(`HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    networkTime = server.parser(data);
+                    
+                    // 验证时间是否有效
+                    if (isNaN(networkTime.getTime())) {
+                        throw new Error('无效的时间数据');
+                    }
+                    
+                    // 更新UI显示
+                    if (timeElement) {
+                        timeElement.textContent = networkTime.toLocaleString('zh-CN', {
+                            year: 'numeric',
+                            month: '2-digit',
+                            day: '2-digit',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            weekday: 'long'
+                        });
+                        timeElement.classList.remove('text-warning', 'text-danger', 'text-primary');
+                        timeElement.classList.add('text-success');
+                    }
+                    
+                    console.log(`✅ 从 ${server.name} 同步时间成功:`, networkTime);
+                    showToast(`网络时间同步成功 (${server.name})`, 'success');
+                    
+                    success = true;
+                    break;
+                    
+                } catch (error) {
+                    console.warn(`❌ 从 ${server.name} 同步时间失败:`, error.message);
+                    
+                    // 如果是最后一个服务器，使用本地时间
+                    if (i === timeServers.length - 1) {
+                        networkTime = new Date();
+                        
+                        if (timeElement) {
+                            timeElement.textContent = networkTime.toLocaleString('zh-CN') + ' (本地时间)';
+                            timeElement.classList.remove('text-success', 'text-primary');
+                            timeElement.classList.add('text-warning');
+                        }
+                        
+                        showToast('所有网络时间服务器不可用，使用本地时间', 'warning');
+                    }
+                }
+            }
+            
+            // 启动时间更新定时器
+            startLocalTimeUpdate();
+        }
+        
+        // 本地时间更新定时器
+        let timeUpdateInterval = null;
+        
+        // 直接使用本地时间
+        function useLocalTime() {
+            const timeElement = document.getElementById('network-time');
+            if (timeElement) {
+                timeElement.textContent = '正在获取本地时间...';
+                timeElement.classList.remove('text-success', 'warning', 'danger');
+                timeElement.classList.add('text-primary');
+            }
+            
+            // 使用设备本地时间
+            networkTime = new Date();
+            
+            // 更新UI显示
+            if (timeElement) {
+                timeElement.textContent = networkTime.toLocaleString('zh-CN', {
+                    year: 'numeric',
+                    month: '2-digit',
+                    day: '2-digit',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    second: '2-digit',
+                    weekday: 'long'
+                });
+                timeElement.classList.remove('text-warning', 'text-danger', 'text-primary');
+                timeElement.classList.add('text-success');
+            }
+            
+            console.log('✅ 使用本地时间:', networkTime);
+            showToast('已使用本地时间', 'success');
+            
+            // 启动时间更新定时器
+            startLocalTimeUpdate();
+        }
+        
+        function startLocalTimeUpdate() {
+            // 清除之前的定时器
+            if (timeUpdateInterval) {
+                clearInterval(timeUpdateInterval);
+            }
+            
+            // 每秒更新一次本地时间显示
+            timeUpdateInterval = setInterval(() => {
+                const timeElement = document.getElementById('network-time');
+                if (timeElement) {
+                    const now = new Date();
+                    timeElement.textContent = now.toLocaleString('zh-CN', {
+                        year: 'numeric',
+                        month: '2-digit',
+                        day: '2-digit',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit',
+                        weekday: 'long'
+                    });
+                }
+            }, 1000);
+        }
+
+        // 跌倒日志相关函数
+        let fallLogs = [];
+
+        // 加载跌倒日志
+        function loadFallLogs() {
+            try {
+                const savedLogs = localStorage.getItem('fallLogs');
+                if (savedLogs) {
+                    fallLogs = JSON.parse(savedLogs);
+                    updateFallLogUI();
+                }
+            } catch (error) {
+                console.error('❌ 加载跌倒日志失败:', error);
+                fallLogs = [];
+            }
+        }
+
+        // 保存跌倒日志
+        function saveFallLogs() {
+            try {
+                localStorage.setItem('fallLogs', JSON.stringify(fallLogs));
+            } catch (error) {
+                console.error('❌ 保存跌倒日志失败:', error);
+            }
+        }
+
+        // 添加跌倒日志
+        function addFallLog(record) {
+            try {
+                fallLogs.unshift(record); // 添加到数组开头
+                saveFallLogs();
+                updateFallLogUI();
+                
+                // 发送跌倒报警命令
+                if (bluetoothManager && bluetoothManager.isConnected) {
+                    bluetoothManager.sendCommand('FALL_ALARM');
+                }
+            } catch (error) {
+                console.error('❌ 添加跌倒日志失败:', error);
+            }
+        }
+
+        // 更新跌倒日志UI
+        function updateFallLogUI() {
+            try {
+                const container = document.getElementById('fall-log-container');
+                if (!container) return;
+                
+                // 计算今日跌倒次数（修复逻辑）
+                const today = new Date();
+                const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+                const todayEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 23, 59, 59);
+                
+                const todayFalls = fallLogs.filter(log => {
+                    const logTime = new Date(log.timestamp);
+                    return logTime >= todayStart && logTime <= todayEnd;
+                }).length;
+                
+                // 更新统计信息
+                const todayCountElement = document.getElementById('today-fall-count');
+                const totalCountElement = document.getElementById('total-fall-count');
+                
+                if (todayCountElement) todayCountElement.textContent = todayFalls;
+                if (totalCountElement) totalCountElement.textContent = fallLogs.length;
+                
+                // 更新日志列表
+                if (fallLogs.length === 0) {
+                    container.innerHTML = `
+                        <div class="text-center py-8 text-gray-400">
+                            <i class="fa fa-check-circle text-3xl mb-3"></i>
+                            <p>暂无跌倒记录</p>
+                            <p class="text-sm mt-1">设备正常运行中</p>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML = fallLogs.map(log => `
+                        <div class="bg-dark border border-dark-lighter rounded-lg p-3">
+                            <div class="flex items-center justify-between mb-2">
+                                <div class="flex items-center space-x-2">
+                                    <i class="fa fa-exclamation-triangle text-danger"></i>
+                                    <span class="font-bold">跌倒事件</span>
+                                </div>
+                                <span class="text-xs text-gray-400">${log.localTime}</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <div>
+                                    <span class="text-gray-400">类型:</span>
+                                    <span>${log.type}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-400">状态:</span>
+                                    <span class="text-success">${log.status}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-400">跌倒次数:</span>
+                                    <span class="text-warning">${log.fallCount}</span>
+                                </div>
+                                <div>
+                                    <span class="text-gray-400">持续时间:</span>
+                                    <span class="text-info">${log.duration}</span>
+                                </div>
+                            </div>
+                        </div>
+                    `).join('');
+                }
+            } catch (error) {
+                console.error('❌ 更新跌倒日志UI失败:', error);
+            }
+        }
+
+        // 清空跌倒日志
+        function clearFallLogs() {
+            if (confirm('确定要清空所有跌倒日志吗？此操作不可恢复。')) {
+                try {
+                    fallLogs = [];
+                    saveFallLogs();
+                    updateFallLogUI();
+                    showToast('跌倒日志已清空', 'success');
+                } catch (error) {
+                    console.error('❌ 清空跌倒日志失败:', error);
+                    showToast('清空失败，请重试', 'error');
+                }
+            }
+        }
+
+        // 初始化图表
+        function initializeChart() {
+            const ctx = document.getElementById('data-chart').getContext('2d');
+            
+            dataChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: Array(20).fill(''),
+                    datasets: [{
+                        label: '俯仰角',
+                        data: Array(20).fill(0),
+                        borderColor: '#38BDF8',
+                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                        borderWidth: 2,
+                        tension: 0.4,
+                        fill: true
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            grid: {
+                                color: 'rgba(255, 255, 255, 0.1)'
+                            },
+                            ticks: {
+                                color: 'rgba(255, 255, 255, 0.7)'
+                            },
+                            suggestedMin: -100,
+                            suggestedMax: 100
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                display: false
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    },
+                    animation: {
+                        duration: 0
+                    }
+                }
+            });
+        }
+
+        // 更新数据图表
+        function updateDataChart() {
+            if (!dataChart || !dataParser) return;
+            
+            const dataset = dataChart.data.datasets[0];
+            
+            switch (currentChartType) {
+                case 'attitude':
+                    dataset.data.push(dataParser.data.attitude.pitch);
+                    dataset.label = '俯仰角 (°)';
+                    dataset.borderColor = '#38BDF8';
+                    dataset.backgroundColor = 'rgba(56, 189, 248, 0.1)';
+                    break;
+                case 'distance':
+                    dataset.data.push(dataParser.data.distance);
+                    dataset.label = '距离 (cm)';
+                    dataset.borderColor = '#22C55E';
+                    dataset.backgroundColor = 'rgba(34, 197, 94, 0.1)';
+                    break;
+            }
+            
+            // 保持数据点数量
+            if (dataset.data.length > 20) {
+                dataset.data.shift();
+            }
+            
+            dataChart.update();
+        }
+
+        // 切换图表数据类型
+        function toggleChartData(type) {
+            currentChartType = type;
+            
+            // 更新按钮状态
+            document.querySelectorAll('[onclick*="toggleChartData"]').forEach(btn => {
+                btn.classList.remove('bg-primary', 'text-dark');
+                btn.classList.add('bg-dark-lighter', 'text-white');
+            });
+            
+            event.target.classList.remove('bg-dark-lighter', 'text-white');
+            event.target.classList.add('bg-primary', 'text-dark');
+            
+            // 重置图表数据和Y轴范围
+            dataChart.data.datasets[0].data = Array(20).fill(0);
+            
+            // 根据数据类型调整Y轴范围
+            const yAxis = dataChart.options.scales.y;
+            if (type === 'attitude') {
+                yAxis.suggestedMin = -90;
+                yAxis.suggestedMax = 90;
+                yAxis.beginAtZero = false;
+            } else if (type === 'distance') {
+                yAxis.suggestedMin = 0;
+                yAxis.suggestedMax = 500;
+                yAxis.beginAtZero = true;
+            }
+            
+            dataChart.update();
+        }
+
+        // 确认报警
+        function acknowledgeAlarm() {
+            document.getElementById('alcohol-alarm').classList.add('hidden');
+        }
+
+        // 显示配置弹窗
+        function showConfig() {
+            document.getElementById('config-modal').classList.remove('hidden');
+            document.getElementById('config-modal').classList.add('flex');
+        }
+
+        // 隐藏配置弹窗
+        function hideConfig() {
+            document.getElementById('config-modal').classList.add('hidden');
+            document.getElementById('config-modal').classList.remove('flex');
+        }
+
+        // 保存配置
+        function saveConfig() {
+            // 保存蓝牙配置
+            config.bluetooth.deviceName = document.getElementById('device-name').value;
+            config.bluetooth.baudRate = parseInt(document.getElementById('baud-rate').value);
+            config.bluetooth.password = document.getElementById('password').value;
+            
+            // 保存阈值配置
+            config.thresholds.autoAdjust = document.getElementById('auto-adjust').checked;
+            const attitudeWarning = parseInt(document.getElementById('attitude-warning').value);
+            const attitudeDanger = parseInt(document.getElementById('attitude-danger').value);
+            const wqWarning = parseInt(document.getElementById('wq-warning').value);
+            const wqDanger = parseInt(document.getElementById('wq-danger').value);
+            
+            // 更新阈值配置
+            config.thresholds.pitch.warning = attitudeWarning;
+            config.thresholds.pitch.danger = attitudeDanger;
+            config.thresholds.roll.warning = attitudeWarning;
+            config.thresholds.roll.danger = attitudeDanger;
+            config.thresholds.wq.warning = wqWarning;
+            config.thresholds.wq.danger = wqDanger;
+            
+            saveConfigToStorage();
+            hideConfig();
+            
+            showToast('配置已保存', 'success');
+        }
+
+        // 加载配置
+        function loadConfig() {
+            try {
+                const stored = localStorage.getItem('bluetoothConfig');
+                if (stored) {
+                    config = JSON.parse(stored);
+                    
+                    // 更新蓝牙配置UI
+                    document.getElementById('device-name').value = config.bluetooth.deviceName;
+                    document.getElementById('baud-rate').value = config.bluetooth.baudRate;
+                    document.getElementById('password').value = config.bluetooth.password;
+                    
+                    // 更新阈值配置UI
+                    if (config.thresholds) {
+                        document.getElementById('auto-adjust').checked = config.thresholds.autoAdjust;
+                        document.getElementById('attitude-warning').value = config.thresholds.pitch.warning;
+                        document.getElementById('attitude-danger').value = config.thresholds.pitch.danger;
+                        
+                        // 更新WQ阈值配置
+                        if (config.thresholds.wq) {
+                            document.getElementById('wq-warning').value = config.thresholds.wq.warning;
+                            document.getElementById('wq-danger').value = config.thresholds.wq.danger;
+                        }
+                    }
+                }
+            } catch (error) {
+                console.error('❌ 加载配置失败:', error);
+            }
+        }
+
+        // 保存配置到存储
+        function saveConfigToStorage() {
+            try {
+                localStorage.setItem('bluetoothConfig', JSON.stringify(config));
+            } catch (error) {
+                console.error('❌ 保存配置失败:', error);
+            }
+        }
+
+        // 优化触摸体验
+        document.addEventListener('touchstart', function(e) {
+            // 允许日志页面滚动
+            if (e.target.closest('#fall-log-container')) {
+                return;
+            }
+        });
+    </script>
+</body>
+</html>
