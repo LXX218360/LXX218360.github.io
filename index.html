@@ -328,7 +328,7 @@
                     <button ontouchstart="startPress('W')" ontouchend="endPress()" onmousedown="startPress('W')" onmouseup="endPress()" onmouseleave="endPress()" class="control-btn py-4" data-btn-name="前进" data-btn-command="W">
                         <i class="fa fa-arrow-up text-xl"></i>
                     </button>
-                    <button id="config-button" onclick="openConfigDialog()" class="control-btn py-4 bg-blue-600">
+                    <button id="config-button" class="control-btn py-4 bg-blue-600">
                         <i class="fa fa-cog text-xl"></i>
                     </button>
                     
@@ -610,8 +610,7 @@
                 // 保存配置按钮的原始状态
                 configButtonOriginal = {
                     className: configButton.className,
-                    innerHTML: configButton.innerHTML,
-                    onclick: configButton.getAttribute('onclick')
+                    innerHTML: configButton.innerHTML
                 };
                 
                 // 保存原始样式并改变按钮颜色
@@ -636,7 +635,6 @@
                 // 改变配置按钮样式
                 configButton.className = configButtonOriginal.className.replace('bg-blue-600', 'bg-green-600');
                 configButton.innerHTML = '<i class="fa fa-check text-xl"></i>';
-                configButton.setAttribute('onclick', 'toggleConfigMode()');
                 
                 showToast('进入配置模式，点击按钮进行修改', 'info');
             } else {
@@ -657,7 +655,6 @@
                 // 完全恢复配置按钮到初始状态
                 configButton.className = configButtonOriginal.className;
                 configButton.innerHTML = configButtonOriginal.innerHTML;
-                configButton.setAttribute('onclick', configButtonOriginal.onclick);
                 
                 // 清空保存的状态
                 originalButtonStyles = [];
@@ -714,11 +711,6 @@
             
             showToast(`已更新: ${newName} (${newCommand})`, 'success');
         }
-        
-        // 重命名原函数以保持兼容性
-        function openConfigDialog() {
-            toggleConfigMode();
-        }
 
         // 页面加载完成
         document.addEventListener('DOMContentLoaded', function() {
@@ -733,7 +725,11 @@
             // 初始化图表
             initializeChart();
             
-            // 配置功能已通过配置按钮实现
+            // 加载跌倒日志
+            loadFallLogs();
+            
+            // 配置按钮长按事件
+            setupConfigButtonLongPress();
             
             // 监听键盘事件（用于电脑端测试）
             document.addEventListener('keydown', handleKeyDown);
@@ -748,6 +744,59 @@
             // 显示兼容性提示
             showCompatibilityInfo();
         });
+
+        // 配置按钮长按事件
+        function setupConfigButtonLongPress() {
+            const configButton = document.getElementById('config-button');
+            let longPressTimer = null;
+            const longPressDuration = 500; // 500ms长按触发
+            
+            // 点击打开配置弹窗
+            configButton.addEventListener('click', function(e) {
+                if (!isConfigMode) {
+                    showConfig();
+                }
+            });
+            
+            // 触摸事件
+            configButton.addEventListener('touchstart', function(e) {
+                e.preventDefault();
+                longPressTimer = setTimeout(() => {
+                    toggleConfigMode();
+                }, longPressDuration);
+            });
+            
+            configButton.addEventListener('touchend', function(e) {
+                e.preventDefault();
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            });
+            
+            // 鼠标事件
+            configButton.addEventListener('mousedown', function(e) {
+                e.preventDefault();
+                longPressTimer = setTimeout(() => {
+                    toggleConfigMode();
+                }, longPressDuration);
+            });
+            
+            configButton.addEventListener('mouseup', function(e) {
+                e.preventDefault();
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            });
+            
+            configButton.addEventListener('mouseleave', function(e) {
+                if (longPressTimer) {
+                    clearTimeout(longPressTimer);
+                    longPressTimer = null;
+                }
+            });
+        }
 
         // 初始化管理器
         function initializeManagers() {
@@ -764,6 +813,7 @@
                 this.device = null;
                 this.server = null;
                 this.characteristic = null;
+                this.connectedDeviceId = null;
                 this.isConnected = false;
                 this.receiveBuffer = '';
                 this.connectionTimeout = null;
@@ -779,7 +829,13 @@
                     if (this.connectionTimeout) clearTimeout(this.connectionTimeout);
                     
                     // 断开连接
-                    if (this.device && this.device.gatt) {
+                    const isHBuilderX = window.plus && plus.bluetooth;
+                    if (isHBuilderX && this.connectedDeviceId) {
+                        plus.bluetooth.closeBLEConnection({
+                            deviceId: this.connectedDeviceId,
+                            fail: () => {}
+                        });
+                    } else if (this.device && this.device.gatt) {
                         this.device.gatt.disconnect().catch(() => {});
                     }
                     
@@ -787,6 +843,7 @@
                     this.device = null;
                     this.server = null;
                     this.characteristic = null;
+                    this.connectedDeviceId = null;
                     this.isConnected = false;
                     this.receiveBuffer = '';
                     
@@ -802,7 +859,7 @@
                 // 每2秒发送空数据保活，防止浏览器空闲断开
                 this.keepAliveInterval = setInterval(() => {
                     if (this.isConnected && this.characteristic) {
-                        this.characteristic.writeValue(new TextEncoder().encode(' ')).catch(() => {});
+                        this.sendCommand(' ').catch(() => {});
                     }
                 }, 2000);
             }
@@ -1042,23 +1099,23 @@
             }
             
             // 连接设备
-            async connectToDevice() {
+            async connectToDevice(deviceId) {
                 try {
-                    if (!this.device) {
+                    if (!this.device && !deviceId) {
                         throw new Error('未选择设备');
                     }
-                    
+
                     const isHBuilderX = window.plus && plus.bluetooth;
-                    
+
                     if (isHBuilderX) {
-                        console.log('🔗 在HBuilder X环境中连接设备:', this.device.name || '未知设备');
-                        const success = await this.connectDeviceWithPlus();
+                        console.log('🔗 在HBuilder X环境中连接设备:', deviceId || this.device.deviceId);
+                        const success = await this.connectDeviceWithPlus(deviceId || this.device.deviceId);
                         if (success) {
                             this.resetDataToDefault();
                             this.startKeepAlive(); // 【修复】启动保活
                         }
                         return success;
-                    } else if (this.device.gatt) {
+                    } else if (this.device && this.device.gatt) {
                         console.log('🔗 在Web环境中连接设备:', this.device.name || '未知设备');
                         const success = await this.connectDeviceWithWebBluetooth();
                         if (success) {
@@ -1101,21 +1158,84 @@
             }
             
             // 使用HBuilder X plus API连接设备
-            async connectDeviceWithPlus() {
+            async connectDeviceWithPlus(deviceId) {
                 try {
                     return new Promise((resolve, reject) => {
                         plus.bluetooth.createBLEConnection({
-                            deviceId: this.device.deviceId,
+                            deviceId: deviceId,
                             success: (res) => {
                                 console.log('✅ HBuilder X蓝牙连接成功!', res);
-                                
+                                this.connectedDeviceId = deviceId;
+
+                                // 获取服务列表
                                 plus.bluetooth.getBLEDeviceServices({
-                                    deviceId: this.device.deviceId,
+                                    deviceId: deviceId,
                                     success: (servicesRes) => {
                                         console.log('📋 获取服务成功:', servicesRes.services);
-                                        this.isConnected = true;
-                                        this.connectedDeviceId = this.device.deviceId;
-                                        resolve(true);
+                                        
+                                        // 找到目标服务
+                                        const targetService = servicesRes.services.find(s => 
+                                            s.uuid.toLowerCase() === this.config.serviceUuid.toLowerCase()
+                                        );
+
+                                        if (!targetService) {
+                                            reject(new Error('未找到目标蓝牙服务'));
+                                            return;
+                                        }
+
+                                        // 获取特征值列表
+                                        plus.bluetooth.getBLEDeviceCharacteristics({
+                                            deviceId: deviceId,
+                                            serviceId: targetService.uuid,
+                                            success: (charsRes) => {
+                                                console.log('📋 获取特征值成功:', charsRes.characteristics);
+                                                
+                                                // 找到目标特征值
+                                                const targetChar = charsRes.characteristics.find(c => 
+                                                    c.uuid.toLowerCase() === this.config.characteristicUuid.toLowerCase()
+                                                );
+
+                                                if (!targetChar) {
+                                                    reject(new Error('未找到目标蓝牙特征值'));
+                                                    return;
+                                                }
+
+                                                this.characteristic = {
+                                                    uuid: targetChar.uuid,
+                                                    serviceId: targetService.uuid
+                                                };
+
+                                                // 开启通知
+                                                plus.bluetooth.notifyBLECharacteristicValueChange({
+                                                    deviceId: deviceId,
+                                                    serviceId: targetService.uuid,
+                                                    characteristicId: targetChar.uuid,
+                                                    state: true,
+                                                    success: () => {
+                                                        console.log('✅ 开启通知成功');
+                                                        this.isConnected = true;
+
+                                                        // 监听数据接收
+                                                        plus.bluetooth.onBLECharacteristicValueChange((res) => {
+                                                            // 转换ArrayBuffer为字符串
+                                                            const value = new TextDecoder().decode(res.value);
+                                                            console.log('📥 收到数据:', value);
+                                                            this.handleDataReceived({ target: { value: res.value } });
+                                                        });
+
+                                                        resolve(true);
+                                                    },
+                                                    fail: (err) => {
+                                                        console.error('❌ 开启通知失败:', err);
+                                                        reject(new Error('开启通知失败: ' + JSON.stringify(err)));
+                                                    }
+                                                });
+                                            },
+                                            fail: (err) => {
+                                                console.error('❌ 获取特征值失败:', err);
+                                                reject(new Error('获取特征值失败: ' + JSON.stringify(err)));
+                                            }
+                                        });
                                     },
                                     fail: (err) => {
                                         console.error('❌ 获取服务失败:', err);
@@ -1139,24 +1259,46 @@
             async disconnect() {
                 try {
                     this.stopKeepAlive(); // 停止保活
-                    
-                    if (this.characteristic) {
-                        this.characteristic.removeEventListener('characteristicvaluechanged', this.handleDataReceived);
-                        try {
-                            await this.characteristic.stopNotifications();
-                        } catch (e) {}
-                    }
-                    
-                    if (this.device) {
-                        this.device.removeEventListener('gattserverdisconnected', this.handleDisconnection);
-                        if (this.device.gatt.connected) {
-                            await this.device.gatt.disconnect();
+
+                    const isHBuilderX = window.plus && plus.bluetooth;
+
+                    if (isHBuilderX && this.connectedDeviceId) {
+                        // HBuilder X环境下断开连接
+                        return new Promise((resolve) => {
+                            plus.bluetooth.closeBLEConnection({
+                                deviceId: this.connectedDeviceId,
+                                success: () => {
+                                    console.log('📴 HBuilder X蓝牙连接已断开');
+                                    this.resetConnection();
+                                    resolve(true);
+                                },
+                                fail: (err) => {
+                                    console.error('❌ 断开连接失败:', err);
+                                    this.resetConnection();
+                                    resolve(true);
+                                }
+                            });
+                        });
+                    } else {
+                        // Web环境下断开连接
+                        if (this.characteristic) {
+                            this.characteristic.removeEventListener('characteristicvaluechanged', this.handleDataReceived);
+                            try {
+                                await this.characteristic.stopNotifications();
+                            } catch (e) {}
                         }
+
+                        if (this.device) {
+                            this.device.removeEventListener('gattserverdisconnected', this.handleDisconnection);
+                            if (this.device.gatt.connected) {
+                                await this.device.gatt.disconnect();
+                            }
+                        }
+
+                        this.resetConnection();
+                        console.log('📴 蓝牙连接已断开');
+                        return true;
                     }
-                    
-                    this.resetConnection();
-                    console.log('📴 蓝牙连接已断开');
-                    return true;
                 } catch (error) {
                     console.error('❌ 断开连接失败:', error);
                     this.resetConnection();
@@ -1171,14 +1313,37 @@
                         console.warn('⚠️ 未连接到设备，无法发送命令');
                         return false;
                     }
-                    
+
                     const commandStr = String(command);
                     const encoder = new TextEncoder();
                     const data = encoder.encode(commandStr);
-                    
-                    await this.characteristic.writeValue(data);
-                    console.log('📤 发送命令:', commandStr);
-                    return true;
+
+                    const isHBuilderX = window.plus && plus.bluetooth;
+
+                    if (isHBuilderX) {
+                        // HBuilder X环境下发送数据
+                        return new Promise((resolve, reject) => {
+                            plus.bluetooth.writeBLECharacteristicValue({
+                                deviceId: this.connectedDeviceId,
+                                serviceId: this.characteristic.serviceId,
+                                characteristicId: this.characteristic.uuid,
+                                value: data.buffer,
+                                success: () => {
+                                    console.log('📤 发送命令:', commandStr);
+                                    resolve(true);
+                                },
+                                fail: (err) => {
+                                    console.error('❌ 发送命令失败:', err);
+                                    resolve(false);
+                                }
+                            });
+                        });
+                    } else {
+                        // Web环境下发送数据
+                        await this.characteristic.writeValue(data);
+                        console.log('📤 发送命令:', commandStr);
+                        return true;
+                    }
                 } catch (error) {
                     console.error('❌ 发送命令失败:', error);
                     return false;
@@ -1243,6 +1408,7 @@
                 this.isConnected = false;
                 this.server = null;
                 this.characteristic = null;
+                this.connectedDeviceId = null;
                 this.receiveBuffer = '';
                 if (this.connectionTimeout) clearTimeout(this.connectionTimeout);
                 this.stopKeepAlive();
@@ -1376,7 +1542,7 @@
                     }
                     // 环境数据解析
                     else if (data.startsWith('[Env]')) {
-                        const match = data.match(/Temp:(\d+)C,Humi:(\d+)%RH/);
+                        const match = data.match(/Temp[:\s]*(\d+)[\sC°]*[,;\s]*Humi[:\s]*(\d+)[\s%RH]*/i);
                         if (match) {
                             const temp = parseInt(match[1]);
                             const humi = parseInt(match[2]);
@@ -1389,7 +1555,7 @@
                     }
                     // 距离数据解析
                     else if (data.startsWith('[Distance]')) {
-                        const match = data.match(/Dist:(\d+) cm/);
+                        const match = data.match(/Dist:?\s*(\d+)\s*(?:cm|mm|m)?/i);
                         if (match) {
                             const distance = parseInt(match[1]);
                             const distanceStatus = distance < 10 ? 'text-danger' : distance < 30 ? 'text-warning' : 'text-success';
@@ -1902,9 +2068,9 @@
                             <div class="flex items-center justify-between">
                                 <div>
                                     <div class="font-bold">${device.name || '未知设备'}</div>
-                                    <div class="text-sm text-gray-400">${device.id}</div>
+                                    <div class="text-sm text-gray-400">${device.id || device.deviceId}</div>
                                 </div>
-                                <button onclick="connectToSpecificDevice('${device.id}')" 
+                                <button onclick="connectToSpecificDevice('${device.id || device.deviceId}')" 
                                     class="px-3 py-1 bg-primary text-dark rounded-lg text-sm font-bold hover:bg-opacity-80 transition">
                                     连接
                                 </button>
@@ -1944,6 +2110,7 @@
                 document.getElementById('connection-status').classList.add('hidden');
                 document.getElementById('device-list').classList.add('hidden');
                 document.getElementById('connecting').classList.remove('hidden');
+                document.getElementById('connecting-device').textContent = `正在连接到 ${deviceId}...`;
                 
                 // 调用连接方法
                 const success = await bluetoothManager.connectToDevice(deviceId);
@@ -1974,12 +2141,11 @@
             }
         }
 
-        // 断开连接
         // 断开连接（修复版）
         async function disconnectFromDevice() {
             try {
                 // 强制重置蓝牙状态
-                bluetoothManager.forceReset();
+                await bluetoothManager.disconnect();
                 updateConnectionUI();
                 showToast('已断开连接，可重新搜索', 'info');
             } catch (error) {
@@ -1995,12 +2161,12 @@
             if (document.hidden) {
                 console.log('📱 应用进入后台，暂停心跳检测');
                 if (bluetoothManager) {
-                    bluetoothManager.pauseHeartbeat();
+                    bluetoothManager.stopKeepAlive();
                 }
             } else {
                 console.log('📱 应用回到前台，恢复心跳检测');
-                if (bluetoothManager) {
-                    bluetoothManager.resumeHeartbeat();
+                if (bluetoothManager && bluetoothManager.isConnected) {
+                    bluetoothManager.startKeepAlive();
                 }
             }
         });
@@ -2016,7 +2182,7 @@
                             <i class="fa fa-bluetooth"></i>
                         </div>
                         <h3 class="text-lg font-bold mb-2">已连接</h3>
-                        <p class="text-gray-400 mb-4">设备名称: ${bluetoothManager.device.name}</p>
+                        <p class="text-gray-400 mb-4">设备名称: ${bluetoothManager.device?.name || bluetoothManager.connectedDeviceId}</p>
                         
                         <div class="flex flex-col space-y-3">
                             <button onclick="disconnectFromDevice()" class="btn-danger">
@@ -2321,8 +2487,8 @@
 
         // 检查蓝牙支持
         function checkBluetoothSupport() {
-            if (!navigator.bluetooth) {
-                console.warn('⚠️ 当前浏览器不支持Web Bluetooth API');
+            if (!navigator.bluetooth && !(window.plus && plus.bluetooth)) {
+                console.warn('⚠️ 当前环境不支持蓝牙功能');
                 
                 // 显示友好的提示，但不阻止用户继续使用
                 const modal = document.createElement('div');
@@ -2333,7 +2499,7 @@
                             <i class="fa fa-info-circle text-primary"></i>
                         </div>
                         <h2 class="text-xl font-bold mb-2">蓝牙功能提示</h2>
-                        <p class="text-gray-300 mb-4">您的浏览器可能不完全支持Web Bluetooth API</p>
+                        <p class="text-gray-300 mb-4">您的环境可能不支持蓝牙功能</p>
                         <div class="bg-dark p-3 rounded-lg mb-4 text-left text-sm">
                             <p class="mb-2"><i class="fa fa-check-circle text-success mr-2"></i> 推荐使用Chrome浏览器</p>
                             <p class="mb-2"><i class="fa fa-check-circle text-success mr-2"></i> 或在HBuilder X中运行</p>
@@ -2396,12 +2562,6 @@
                     name: 'NTP API',
                     url: 'https://api.mfapi.cn/time',
                     parser: (data) => new Date(data.data)
-                },
-                {
-                    name: '阿里云',
-                    url: 'https://developer.aliyun.com/gw/alicloudapi/time',
-                    headers: { 'X-Ca-Key': '24690129' },
-                    parser: (data) => new Date(data.dateTime)
                 }
             ];
             
@@ -2415,8 +2575,7 @@
                     
                     const fetchOptions = {
                         method: 'GET',
-                        timeout: 5000,
-                        headers: server.headers || {}
+                        timeout: 5000
                     };
                     
                     // 添加超时控制
@@ -2581,7 +2740,7 @@
                 
                 // 发送跌倒报警命令
                 if (bluetoothManager && bluetoothManager.isConnected) {
-                    bluetoothManager.sendCommand('FALL_ALARM');
+                    bluetoothManager.sendCommand('FALL_ALARM').catch(() => {});
                 }
             } catch (error) {
                 console.error('❌ 添加跌倒日志失败:', error);
@@ -2734,15 +2893,12 @@
             switch (currentChartType) {
                 case 'attitude':
                     dataset.data.push(dataParser.data.attitude.pitch);
-                    dataset.label = '俯仰角 (°)';
-                    dataset.borderColor = '#38BDF8';
-                    dataset.backgroundColor = 'rgba(56, 189, 248, 0.1)';
                     break;
                 case 'distance':
                     dataset.data.push(dataParser.data.distance);
-                    dataset.label = '距离 (cm)';
-                    dataset.borderColor = '#22C55E';
-                    dataset.backgroundColor = 'rgba(34, 197, 94, 0.1)';
+                    break;
+                case 'alcohol':
+                    dataset.data.push(dataParser.data.alcohol.raw);
                     break;
             }
             
@@ -2770,16 +2926,35 @@
             // 重置图表数据和Y轴范围
             dataChart.data.datasets[0].data = Array(20).fill(0);
             
-            // 根据数据类型调整Y轴范围
+            // 根据数据类型调整Y轴范围和标签
             const yAxis = dataChart.options.scales.y;
-            if (type === 'attitude') {
-                yAxis.suggestedMin = -90;
-                yAxis.suggestedMax = 90;
-                yAxis.beginAtZero = false;
-            } else if (type === 'distance') {
-                yAxis.suggestedMin = 0;
-                yAxis.suggestedMax = 500;
-                yAxis.beginAtZero = true;
+            const dataset = dataChart.data.datasets[0];
+            
+            switch (type) {
+                case 'attitude':
+                    dataset.label = '俯仰角 (°)';
+                    dataset.borderColor = '#38BDF8';
+                    dataset.backgroundColor = 'rgba(56, 189, 248, 0.1)';
+                    yAxis.suggestedMin = -90;
+                    yAxis.suggestedMax = 90;
+                    yAxis.beginAtZero = false;
+                    break;
+                case 'distance':
+                    dataset.label = '距离 (cm)';
+                    dataset.borderColor = '#22C55E';
+                    dataset.backgroundColor = 'rgba(34, 197, 94, 0.1)';
+                    yAxis.suggestedMin = 0;
+                    yAxis.suggestedMax = 500;
+                    yAxis.beginAtZero = true;
+                    break;
+                case 'alcohol':
+                    dataset.label = '酒精浓度';
+                    dataset.borderColor = '#F97316';
+                    dataset.backgroundColor = 'rgba(249, 115, 22, 0.1)';
+                    yAxis.suggestedMin = 0;
+                    yAxis.suggestedMax = 3000;
+                    yAxis.beginAtZero = true;
+                    break;
             }
             
             dataChart.update();
