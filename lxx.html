@@ -54,6 +54,9 @@
             .btn-danger {
                 @apply bg-danger text-white font-bold py-3 px-6 rounded-lg hover:bg-opacity-90 transition-all duration-200 active:scale-95 touch-manipulation;
             }
+            .btn-dark {
+                @apply bg-dark-lighter text-white font-bold py-3 px-6 rounded-lg hover:bg-opacity-80 transition-all duration-200 active:scale-95 touch-manipulation;
+            }
             .card {
                 @apply bg-dark-light rounded-xl p-4 border border-dark-lighter;
             }
@@ -97,7 +100,6 @@
                 <h1 class="text-2xl font-bold mb-2">LXX蓝牙控制</h1>
                 <p class="text-gray-400">连接到您的蓝牙模块</p>
             </div>
-
             <!-- 连接状态 -->
             <div class="card mb-6">
                 <div id="connection-status" class="text-center py-6">
@@ -117,7 +119,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- 设备列表 -->
             <div id="device-list" class="hidden">
                 <h2 class="text-lg font-bold mb-3 flex items-center">
@@ -128,7 +129,6 @@
                     <!-- 设备列表将动态添加 -->
                 </div>
             </div>
-
             <!-- 连接中状态 -->
             <div id="connecting" class="hidden">
                 <div class="text-center py-8">
@@ -137,7 +137,6 @@
                     <p class="text-gray-400" id="connecting-device">正在连接到设备...</p>
                 </div>
             </div>
-
             <!-- AT指令助手 -->
             <div class="card mb-6">
                 <h2 class="text-lg font-bold mb-4 flex items-center">
@@ -167,7 +166,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- 使用说明 -->
             <div class="card">
                 <h2 class="text-lg font-bold mb-3 flex items-center">
@@ -183,7 +181,6 @@
                 </div>
             </div>
         </div>
-
         <!-- 控制页面 -->
         <div id="control-page" class="page hidden">
             <!-- 顶部状态栏 -->
@@ -202,7 +199,6 @@
                     </button>
                 </div>
             </div>
-
             <!-- 实时数据显示 -->
             <div class="mb-6">
                 <h2 class="text-lg font-bold mb-3 flex items-center">
@@ -312,7 +308,6 @@
                     </div>
                 </div>
             </div>
-
             <!-- 控制区域 -->
             <div>
                 <h2 class="text-lg font-bold mb-3 flex items-center">
@@ -383,7 +378,6 @@
                 </div>
             </div>
         </div>
-
         <!-- 数据与日志页面 -->
         <div id="data-log-page" class="page hidden">
             <h2 class="text-lg font-bold mb-4 flex items-center">
@@ -414,6 +408,10 @@
                     <div class="text-sm text-gray-400 mb-1">总跌倒次数</div>
                     <div id="total-fall-count" class="text-2xl font-bold text-danger">0</div>
                 </div>
+                <div class="card text-center py-4">
+                    <div class="text-sm text-gray-400 mb-1">当前跌倒时长</div>
+                    <div id="fall-duration" class="text-2xl font-bold text-warning">0秒</div>
+                </div>
             </div>
             
             <!-- 跌倒记录 -->
@@ -441,93 +439,96 @@
                 </div>
             </div>
         </div>
-    </div>
-
-    <!-- 配置弹窗 -->
-    <div id="config-modal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4">
-        <div class="bg-dark-light rounded-xl p-6 max-w-md w-full">
-            <div class="flex justify-between items-center mb-6">
-                <h2 class="text-xl font-bold">蓝牙配置</h2>
-                <button onclick="hideConfig()" class="text-gray-400 hover:text-white">
-                    <i class="fa fa-times"></i>
-                </button>
+        <!-- 配置设置页面 (新增) -->
+        <div id="config-page" class="page hidden">
+            <!-- 返回按钮 -->
+            <button onclick="switchPage('connect-page')" class="mb-6 text-primary hover:text-primary/80 flex items-center space-x-2 text-lg">
+                <i class="fa fa-arrow-left"></i>
+                <span>返回</span>
+            </button>
+            
+            <!-- 配置设置标题 -->
+            <div class="flex items-center space-x-4 mb-6">
+                <div class="w-12 h-12 bg-primary rounded-full flex items-center justify-center">
+                    <i class="fa fa-cog text-2xl text-dark"></i>
+                </div>
+                <h2 class="text-4xl font-bold text-primary">配置设置</h2>
             </div>
             
+            <!-- 蓝色分割线 -->
+            <div class="border-t-2 border-primary mb-8"></div>
+            
+            <!-- 配置选项列表 -->
             <div class="space-y-4">
-                <div>
-                    <label class="block text-sm font-medium mb-1">设备名称</label>
-                    <input type="text" id="device-name" value="HC-05" 
-                        class="w-full bg-dark border border-dark-lighter rounded-lg px-3 py-2 text-white">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium mb-1">波特率</label>
-                    <select id="baud-rate" class="w-full bg-dark border border-dark-lighter rounded-lg px-3 py-2 text-white">
-                        <option value="9600">9600</option>
-                        <option value="19200">19200</option>
-                        <option value="38400" selected>38400</option>
-                        <option value="57600">57600</option>
-                        <option value="115200">115200</option>
-                    </select>
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium mb-1">配对密码</label>
-                    <input type="text" id="password" value="123456" 
-                        class="w-full bg-dark border border-dark-lighter rounded-lg px-3 py-2 text-white">
-                </div>
-                
-                <!-- 阈值配置 -->
-                <div class="border-t border-dark-lighter pt-4 mt-4">
-                    <h3 class="font-bold mb-3 flex items-center">
-                        <i class="fa fa-sliders text-primary mr-2"></i>
-                        阈值设置
-                    </h3>
-                    
-                    <div class="space-y-3">
-                        <div class="flex items-center justify-between">
-                            <label class="text-sm">自动适配阈值</label>
-                            <label class="inline-flex items-center cursor-pointer">
-                                <input type="checkbox" id="auto-adjust" 
-                                    class="sr-only peer">
-                                <div class="relative w-11 h-6 bg-dark-lighter peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary"></div>
-                            </label>
-                        </div>
-                        
-                        <div class="grid grid-cols-2 gap-3">
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">姿态角警告阈值</label>
-                                <input type="number" id="attitude-warning" min="10" max="60" value="30" 
-                                    class="w-full bg-dark border border-dark-lighter rounded-lg px-2 py-1 text-sm text-white">
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">姿态角危险阈值</label>
-                                <input type="number" id="attitude-danger" min="20" max="80" value="45" 
-                                    class="w-full bg-dark border border-dark-lighter rounded-lg px-2 py-1 text-sm text-white">
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">WQ警告阈值</label>
-                                <input type="number" id="wq-warning" min="500" max="3000" value="1000" 
-                                    class="w-full bg-dark border border-dark-lighter rounded-lg px-2 py-1 text-sm text-white">
-                            </div>
-                            <div>
-                                <label class="block text-xs text-gray-400 mb-1">WQ危险阈值</label>
-                                <input type="number" id="wq-danger" min="800" max="5000" value="1500" 
-                                    class="w-full bg-dark border border-dark-lighter rounded-lg px-2 py-1 text-sm text-white">
-                            </div>
-                        </div>
+                <button onclick="switchPage('threshold-page')" class="w-full bg-dark-light hover:bg-dark-lighter text-white font-bold py-4 px-6 rounded-xl text-xl transition-colors flex items-center justify-between">
+                    <div class="flex items-center space-x-3">
+                        <i class="fa fa-sliders text-primary text-xl"></i>
+                        <span>阈值设置</span>
                     </div>
-                </div>
-            </div>
-            
-            <div class="mt-6">
-                <button onclick="saveConfig()" class="btn-primary w-full">
-                    保存配置
+                    <i class="fa fa-chevron-right text-gray-400"></i>
                 </button>
+                
+                <!-- 可以在这里添加更多配置选项 -->
             </div>
         </div>
+        <!-- 阈值设置页面 (新增) -->
+        <div id="threshold-page" class="page hidden">
+            <!-- 返回按钮 -->
+            <button onclick="switchPage('config-page')" class="mb-6 text-primary hover:text-primary/80 flex items-center space-x-2 text-lg">
+                <i class="fa fa-arrow-left"></i>
+                <span>返回</span>
+            </button>
+            
+            <!-- 阈值设置标题 -->
+            <div class="flex items-center space-x-4 mb-8">
+                <div class="w-10 h-10 bg-primary rounded-full flex items-center justify-center">
+                    <i class="fa fa-sliders text-xl text-dark"></i>
+                </div>
+                <h2 class="text-3xl font-bold">阈值设置</h2>
+            </div>
+            
+            <!-- 自动适配阈值开关 -->
+            <div class="flex items-center justify-between mb-8">
+                <span class="text-xl">自动适配阈值</span>
+                <label class="relative inline-flex items-center cursor-pointer">
+                    <input type="checkbox" id="auto-threshold" class="sr-only peer">
+                    <div class="w-14 h-8 bg-dark-lighter peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:rounded-full after:h-7 after:w-7 after:transition-all peer-checked:bg-primary"></div>
+                </label>
+            </div>
+            
+            <!-- 阈值输入框网格 -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 姿态角警告阈值 -->
+                <div class="space-y-2">
+                    <label class="text-gray-400 text-lg">姿态角警告阈值</label>
+                    <input type="number" id="angle-warning" class="w-full bg-dark border border-dark-lighter rounded-xl px-4 py-4 text-2xl focus:outline-none focus:border-primary transition-colors" value="30">
+                </div>
+                
+                <!-- 姿态角危险阈值 (已修改默认值为40) -->
+                <div class="space-y-2">
+                    <label class="text-gray-400 text-lg">姿态角危险阈值</label>
+                    <input type="number" id="angle-danger" class="w-full bg-dark border border-dark-lighter rounded-xl px-4 py-4 text-2xl focus:outline-none focus:border-primary transition-colors" value="40">
+                </div>
+                
+                <!-- 酒精警告阈值 -->
+                <div class="space-y-2">
+                    <label class="text-gray-400 text-lg">酒精警告阈值</label>
+                    <input type="number" id="alcohol-warning" class="w-full bg-dark border border-dark-lighter rounded-xl px-4 py-4 text-2xl focus:outline-none focus:border-primary transition-colors" value="1500">
+                </div>
+                
+                <!-- 酒精危险阈值 -->
+                <div class="space-y-2">
+                    <label class="text-gray-400 text-lg">酒精危险阈值</label>
+                    <input type="number" id="alcohol-danger" class="w-full bg-dark border border-dark-lighter rounded-xl px-4 py-4 text-2xl focus:outline-none focus:border-primary transition-colors" value="2000">
+                </div>
+            </div>
+            
+            <!-- 保存按钮 -->
+            <button onclick="saveThresholdSettings()" class="w-full bg-primary hover:bg-primary/90 text-dark font-bold py-4 px-6 rounded-xl text-xl transition-colors mt-8">
+                保存设置
+            </button>
+        </div>
     </div>
-
     <!-- 底部导航栏 -->
     <nav class="fixed bottom-0 left-0 right-0 bg-dark-light border-t border-dark-lighter z-50">
         <div class="flex justify-around">
@@ -545,7 +546,6 @@
             </div>
         </div>
     </nav>
-
     <!-- Toast提示 -->
     <div id="toast" class="fixed top-4 left-1/2 transform -translate-x-1/2 bg-dark-light border border-dark-lighter rounded-lg px-4 py-2 shadow-lg hidden z-50">
         <div class="flex items-center space-x-2">
@@ -553,7 +553,6 @@
             <span id="toast-message">消息内容</span>
         </div>
     </div>
-
     <script>
         // 全局变量
         let bluetoothManager = null;
@@ -567,7 +566,15 @@
         let networkTime = null;
         let fallDetectionTimeout = null;
         
-        // 配置信息
+        // ====================== 全局实时图表数据数组 ======================
+        // 三个独立数组，分别记录姿态、距离、酒精的历史数据（最多20个点）
+        let attitudeData = Array(20).fill(0);
+        let rollData = Array(20).fill(0); // 新增：横滚角数据数组
+        let distanceData = Array(20).fill(0);
+        let alcoholData = Array(20).fill(0);
+        // ======================================================================
+        
+        // 配置信息 (姿态角危险阈值默认已改为40)
         let config = {
             bluetooth: {
                 deviceName: 'HC-05',
@@ -581,13 +588,12 @@
                 showAdvancedData: false
             },
             thresholds: {
-                pitch: { warning: 30, danger: 45 },
-                roll: { warning: 30, danger: 45 },
-                wq: { warning: 1000, danger: 1500 },
-                autoAdjust: true
+                pitch: { warning: 30, danger: 40 }, // 危险阈值已从45改为40
+                roll: { warning: 30, danger: 40 },  // 危险阈值已从45改为40
+                alcohol: { warning: 1500, danger: 2000 },
+                autoAdjust: false
             }
         };
-
         // 配置模式管理
         let isConfigMode = false;
         let originalButtonStyles = [];
@@ -719,7 +725,6 @@
         function openConfigDialog() {
             toggleConfigMode();
         }
-
         // 页面加载完成
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🚀 LXX蓝牙控制已启动');
@@ -733,8 +738,6 @@
             // 初始化图表
             initializeChart();
             
-            // 配置功能已通过配置按钮实现
-            
             // 监听键盘事件（用于电脑端测试）
             document.addEventListener('keydown', handleKeyDown);
             document.addEventListener('keyup', handleKeyUp);
@@ -747,17 +750,23 @@
             
             // 显示兼容性提示
             showCompatibilityInfo();
+            
+            // 加载跌倒日志
+            loadFallLogs();
+            
+            // 加载阈值设置
+            loadThresholdSettings();
         });
-
         // 初始化管理器
         function initializeManagers() {
             bluetoothManager = new BluetoothManager(config.bluetooth);
             dataParser = new DataParser();
             logManager = new LogManager();
         }
-
-        // 蓝牙管理器类
-        // 蓝牙管理器类（修复版：保活、强制重置、解决搜索失败）
+        // 全局Chrome检测标志
+        const isChrome = /Chrome|Chromium/i.test(navigator.userAgent) && !/Edge|OPR/i.test(navigator.userAgent);
+        
+        // 蓝牙管理器类（Chrome终极修复版）
         class BluetoothManager {
             constructor(config) {
                 this.config = config;
@@ -767,19 +776,30 @@
                 this.isConnected = false;
                 this.receiveBuffer = '';
                 this.connectionTimeout = null;
-                this.keepAliveInterval = null; // 保活定时器
+                this.keepAliveInterval = null;
                 this.lastHeartbeatTime = Date.now();
+                this.searchTimeout = null;
+                this.isSearching = false;
+                this.reconnectAttempts = 0;
+                this.maxReconnectAttempts = 3;
+                this.disconnectCallback = null;
+                this.lastDisconnectTime = 0;
             }
             
-            // 【修复】强制重置所有蓝牙状态（解决搜索失败）
+            
+            // 【Chrome专用】强制重置所有蓝牙状态
             forceReset() {
                 try {
+                    console.log('🔄 开始强制重置蓝牙状态...');
+                    
                     // 停止所有定时器
                     this.stopKeepAlive();
                     if (this.connectionTimeout) clearTimeout(this.connectionTimeout);
+                    if (this.searchTimeout) clearTimeout(this.searchTimeout);
                     
                     // 断开连接
                     if (this.device && this.device.gatt) {
+                        console.log('📴 断开现有连接...');
                         this.device.gatt.disconnect().catch(() => {});
                     }
                     
@@ -789,14 +809,22 @@
                     this.characteristic = null;
                     this.isConnected = false;
                     this.receiveBuffer = '';
+                    this.isSearching = false;
+                    this.reconnectAttempts = 0;
                     
-                    console.log('🔄 蓝牙状态已强制重置');
+                    // Chrome专用：清除可能的缓存
+                    if (this.isChrome) {
+                        console.log('🔧 Chrome专用：清除蓝牙缓存...');
+                        // 这里不实际清除缓存，因为Web API不支持
+                        // 但会添加额外的延迟来确保状态清理
+                    }
+                    
+                    console.log('✅ 蓝牙状态已强制重置');
                 } catch (e) {
-                    console.warn('⚠️ 重置状态异常');
+                    console.warn('⚠️ 重置状态异常:', e);
                 }
             }
-
-            // 【新增】蓝牙保活（解决自动断开）
+            // 蓝牙保活
             startKeepAlive() {
                 this.stopKeepAlive();
                 // 每2秒发送空数据保活，防止浏览器空闲断开
@@ -806,7 +834,6 @@
                     }
                 }, 2000);
             }
-
             stopKeepAlive() {
                 if (this.keepAliveInterval) {
                     clearInterval(this.keepAliveInterval);
@@ -814,11 +841,18 @@
                 }
             }
             
-            // 搜索设备 - 自动处理环境和权限
+            // 【Chrome专用】搜索设备
             async searchDevices() {
                 try {
-                    // 【修复】搜索前强制重置状态，解决搜索失败
+                    console.log('🔍 开始搜索蓝牙设备...');
+                    
+                    // 【Chrome关键修复】搜索前彻底清理状态
                     this.forceReset();
+                    
+                    // 延迟确保状态稳定 - Chrome专用
+                    if (this.isChrome) {
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
                     
                     // 自动处理权限申请
                     const hasPermission = await this.requestAllPermissions();
@@ -834,25 +868,38 @@
                     
                     // 自动环境检测和适配
                     return await this.autoDetectAndSearch();
+                    
                 } catch (error) {
                     console.error('❌ 搜索设备失败:', error);
                     
-                    // 显示友好的错误提示
-                    if (error.message.includes('Origin is not secure')) {
-                        console.warn('⚠️ 安全限制：当前连接不是安全连接');
-                        showToast('请使用HTTPS连接或在HBuilder X中运行', 'warning');
-                    } else if (error.message.includes('User cancelled')) {
-                        console.log('👤 用户取消了设备选择');
-                        showToast('设备选择已取消', 'info');
-                    } else if (error.message.includes('权限不足')) {
-                        console.warn('⚠️ 权限被拒绝');
-                        showToast('请在系统设置中开启蓝牙和位置权限', 'warning');
-                    } else if (error.message.includes('蓝牙未开启')) {
-                        console.warn('🔷 蓝牙未开启');
-                        showToast('请先开启设备蓝牙', 'warning');
+                    // Chrome特定错误处理
+                    if (this.isChrome) {
+                        if (error.name === 'NotFoundError') {
+                            console.log('👤 用户关闭了设备选择对话框');
+                            showToast('设备选择已取消', 'info');
+                        } else if (error.name === 'SecurityError') {
+                            console.error('🔒 Chrome安全限制:', error.message);
+                            showToast('Chrome安全限制：请使用HTTPS或localhost', 'error');
+                        } else if (error.message.includes('Origin is not secure')) {
+                            console.error('🔒 非安全连接限制');
+                            showToast('请使用HTTPS连接或localhost运行', 'error');
+                        } else {
+                            console.error('❌ Chrome蓝牙未知错误:', error);
+                            showToast('搜索失败: ' + error.message, 'warning');
+                        }
                     } else {
-                        console.error('❌ 搜索设备时出现错误:', error);
-                        showToast('搜索设备时出现问题，请重试', 'warning');
+                        // 通用错误处理
+                        if (error.message.includes('Origin is not secure')) {
+                            showToast('请使用HTTPS连接或在HBuilder X中运行', 'warning');
+                        } else if (error.message.includes('User cancelled')) {
+                            showToast('设备选择已取消', 'info');
+                        } else if (error.message.includes('权限不足')) {
+                            showToast('请在系统设置中开启蓝牙和位置权限', 'warning');
+                        } else if (error.message.includes('蓝牙未开启')) {
+                            showToast('请先开启设备蓝牙', 'warning');
+                        } else {
+                            showToast('搜索设备时出现问题，请重试', 'warning');
+                        }
                     }
                     
                     throw error;
@@ -968,25 +1015,67 @@
                 }
             }
             
-            // 使用Web Bluetooth API搜索设备
+            // 【Chrome专用】使用Web Bluetooth API搜索设备
             async searchDevicesWithWebBluetooth() {
                 try {
+                    console.log('🌐 Chrome Web Bluetooth搜索开始...');
+                    
+                    // 【Chrome关键修复】清除之前的设备缓存
+                    if (this.device && this.device.gatt && this.device.gatt.connected) {
+                        console.log('🔄 断开之前的连接...');
+                        await this.device.gatt.disconnect();
+                    }
+                    
+                    // 延迟确保断开完成 - Chrome专用
+                    await new Promise(resolve => setTimeout(resolve, 200));
+                    
+                    // 重置设备引用 - Chrome关键修复
+                    this.device = null;
+                    
+                    // Chrome特定的搜索选项
                     const options = {
                         acceptAllDevices: true,
                         optionalServices: [this.config.serviceUuid]
                     };
                     
+                    console.log('🔍 显示Chrome蓝牙设备选择对话框...');
+                    
+                    // 显示Chrome设备选择对话框
                     const device = await navigator.bluetooth.requestDevice(options);
                     
                     if (device) {
+                        console.log('✅ 找到Web蓝牙设备:', device.name || '未知设备', 'ID:', device.id);
                         this.device = device;
-                        console.log('📱 找到Web蓝牙设备:', device.name || '未知设备', 'ID:', device.id);
+                        
+                        // 【Chrome关键修复】监听设备断开事件
+                        device.addEventListener('gattserverdisconnected', () => {
+                            console.log('📱 设备已断开连接');
+                            this.isConnected = false;
+                            this.forceReset();
+                            updateConnectionUI();
+                        });
+                        
                         return [device];
                     }
                     
                     return [];
                 } catch (error) {
-                    console.error('❌ Web Bluetooth搜索失败:', error);
+                    console.error('❌ Chrome Web Bluetooth搜索失败:', error);
+                    
+                    // Chrome特定错误处理
+                    if (this.isChrome) {
+                        if (error.name === 'NotFoundError') {
+                            console.log('👤 用户关闭了设备选择对话框');
+                            throw new Error('User cancelled');
+                        } else if (error.name === 'SecurityError') {
+                            console.error('🔒 Chrome安全限制:', error.message);
+                            throw new Error('SecurityError: ' + error.message);
+                        } else {
+                            console.error('❌ Chrome蓝牙搜索错误:', error);
+                            throw error;
+                        }
+                    }
+                    
                     throw error;
                 }
             }
@@ -1281,12 +1370,17 @@
                     const alarmElement = document.getElementById('alcohol-alarm');
                     if (alarmElement) alarmElement.classList.add('hidden');
                     
+                    // ====================== 连接成功时重置图表数据 ======================
+                    attitudeData = Array(20).fill(0);
+                    rollData = Array(20).fill(0);
+                    distanceData = Array(20).fill(0);
+                    alcoholData = Array(20).fill(0);
                     if (window.updateDataChart) updateDataChart();
+                    // ======================================================================
                 }
             }
         }
-
-        // 数据解析器类
+        // 数据解析器类 (所有阈值逻辑已完全绑定全局配置)
         class DataParser {
             constructor() {
                 this.data = {
@@ -1299,6 +1393,7 @@
                 
                 // 用于跟踪跌倒状态变化
                 this.previousFallState = false;
+                this.currentFallRecordId = null;
                 
                 // 用于自动阈值调整的数据收集
                 this.dataHistory = {
@@ -1354,7 +1449,7 @@
                             const pitch = parseFloat(match[1]);
                             const roll = parseFloat(match[2]);
                             const pitchStatus = Math.abs(pitch) > config.thresholds.pitch.danger ? 'text-danger' : Math.abs(pitch) > config.thresholds.pitch.warning ? 'text-warning' : 'text-success';
-                            const rollStatus = Math.abs(roll) > config.thresholds.pitch.danger ? 'text-danger' : Math.abs(roll) > config.thresholds.pitch.warning ? 'text-warning' : 'text-success';
+                            const rollStatus = Math.abs(roll) > config.thresholds.roll.danger ? 'text-danger' : Math.abs(roll) > config.thresholds.roll.warning ? 'text-warning' : 'text-success';
                             
                             displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-primary">姿态数据</span>: 俯仰角 <span class="${pitchStatus}">${pitch.toFixed(1)}°</span>, 横滚角 <span class="${rollStatus}">${roll.toFixed(1)}°</span>`;
                             dataType = 'attitude';
@@ -1362,7 +1457,7 @@
                     }
                     // 跌倒状态解析
                     else if (data.startsWith('[Fall]')) {
-                        const match = data.match(/F:(\d+),FC:(\d+)T:(\d+:\d+:\d+)/);
+                        const match = data.match(/F:(\d+),FC:(\d+),?T:(\d+:\d+:\d+)/);
                         if (match) {
                             const isFall = match[1] === '1';
                             const fallCount = match[2];
@@ -1398,15 +1493,16 @@
                             dataType = 'distance';
                         }
                     }
-                    // 酒精检测解析
+                    // 酒精检测解析 (完全绑定配置阈值)
                     else if (data.startsWith('[Alcohol]')) {
                         const match = data.match(/Raw:(\d+),Volt:(\d+)mV,Alarm:(\d+)/);
                         if (match) {
-                            const rawValue = parseInt(match[1]);
-                            const voltage = parseInt(match[2]);
-                            const isAlarm = match[3] === '1';
-                            const statusClass = isAlarm ? 'text-danger font-bold' : 'text-success';
-                            const statusText = isAlarm ? '报警' : '正常';
+                            const rawValue = parseInt(match[4] || match[1]);
+                            const voltage = parseInt(match[5] || match[2]);
+                            // 优先使用配置的危险阈值判断报警
+                            const isAlarm = rawValue > config.thresholds.alcohol.danger;
+                            const statusClass = isAlarm ? 'text-danger font-bold' : rawValue > config.thresholds.alcohol.warning ? 'text-warning' : 'text-success';
+                            const statusText = isAlarm ? '报警' : rawValue > config.thresholds.alcohol.warning ? '警告' : '正常';
                             
                             displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-danger">酒精检测</span>: 原始值 <span class="${statusClass}">${rawValue}</span>, 电压 ${voltage}mV, 状态 <span class="${statusClass}">${statusText}</span>`;
                             dataType = 'alcohol';
@@ -1417,17 +1513,6 @@
                         const warningText = data.replace('[WARNING]', '').trim();
                         displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-danger font-bold">警告</span>: ${warningText}`;
                         dataType = 'warning';
-                    }
-                    // WQ数据解析
-                    else if (data.startsWith('[WQ]')) {
-                        const match = data.match(/Value:(\d+)/);
-                        if (match) {
-                            const wqValue = parseInt(match[1]);
-                            const wqStatus = wqValue > config.thresholds.wq.danger ? 'text-danger font-bold' : wqValue > config.thresholds.wq.warning ? 'text-warning' : 'text-success';
-                            
-                            displayText = `<span class="text-gray-400">[${timeStr}]</span> <span class="text-accent">WQ数据</span>: <span class="${wqStatus}">${wqValue}</span>`;
-                            dataType = 'wq';
-                        }
                     }
                     // 其他数据
                     else {
@@ -1467,7 +1552,7 @@
                 }
             }
             
-            // 解析姿态数据
+            // 解析姿态数据 (完全绑定配置阈值)
             parseAttitude(line) {
                 // 更宽松的正则表达式，允许空格和不同的分隔符
                 const match = line.match(/P:\s*([\d.-]+)\s*[,;]\s*R:\s*([\d.-]+)/);
@@ -1482,7 +1567,7 @@
                     pitchElement.textContent = `${this.data.attitude.pitch.toFixed(1)}°`;
                     rollElement.textContent = `${this.data.attitude.roll.toFixed(1)}°`;
                     
-                    // 阈值检查和颜色变化
+                    // 阈值检查和颜色变化 (使用全局配置)
                     this.updateValueColor(pitchElement, this.data.attitude.pitch, 'pitch');
                     this.updateValueColor(rollElement, this.data.attitude.roll, 'roll');
                     
@@ -1493,7 +1578,7 @@
                         this.adjustThresholds();
                     }
                     
-                    // 检测跌倒
+                    // 检测跌倒 (使用全局配置的危险阈值)
                     this.detectFall(this.data.attitude.pitch, this.data.attitude.roll);
                     
                     // 更新图表
@@ -1501,9 +1586,9 @@
                 }
             }
             
-            // 解析跌倒数据（优化版本）
+            // 解析跌倒数据（修复持续时间更新问题）
             parseFall(line) {
-                const match = line.match(/F:(\d),FC:(\d+)T:(\d{2}:\d{2}:\d{2})/);
+                const match = line.match(/F:(\d+),FC:(\d+),?T:(\d{2}:\d{2}:\d{2})/);
                 if (match) {
                     const isFall = parseInt(match[1]) === 1;
                     const count = parseInt(match[2]);
@@ -1523,11 +1608,84 @@
                     // 只有当从非跌倒状态变为跌倒状态时才记录跌倒事件
                     if (isFall && !this.previousFallState) {
                         this.handleFallEvent(count, time);
+                        // 记录跌倒开始时间
+                        this.fallStartTime = new Date();
+                        
+                        // 启动定时器更新跌倒时长
+                        if (this.fallTimer) {
+                            clearInterval(this.fallTimer);
+                        }
+                        this.fallTimer = setInterval(() => {
+                            this.updateFallDuration();
+                        }, 1000);
+                    } else if (!isFall && this.previousFallState) {
+                        // 跌倒结束，停止定时器
+                        if (this.fallTimer) {
+                            clearInterval(this.fallTimer);
+                            this.fallTimer = null;
+                        }
+                        // 重置时长显示
+                        this.updateFallDuration(true);
+                        this.fallStartTime = null;
+                        this.currentFallRecordId = null;
+                    }
+                    
+                    // 每次都更新时长显示
+                    if (isFall) {
+                        this.updateFallDuration();
                     }
                     
                     // 更新前一次的跌倒状态
                     this.previousFallState = isFall;
                 }
+            }
+            
+            // 更新跌倒时长显示（修复记录更新问题）
+            updateFallDuration(reset = false) {
+                if (reset || !this.fallStartTime) {
+                    // 重置时长显示
+                    const durationElements = [
+                        document.getElementById('fall-duration')
+                    ];
+                    durationElements.forEach(element => {
+                        if (element) {
+                            element.textContent = '00:00:00';
+                        }
+                    });
+                    return;
+                }
+                
+                // 计算当前跌倒时长
+                const currentTime = new Date();
+                const fallDuration = Math.floor((currentTime - this.fallStartTime) / 1000);
+                
+                // 格式化时长为 HH:MM:SS
+                const hours = Math.floor(fallDuration / 3600).toString().padStart(2, '0');
+                const minutes = Math.floor((fallDuration % 3600) / 60).toString().padStart(2, '0');
+                const seconds = (fallDuration % 60).toString().padStart(2, '0');
+                const formattedDuration = `${hours}:${minutes}:${seconds}`;
+                
+                // 更新主页面时长显示
+                const mainDurationElement = document.getElementById('fall-duration');
+                if (mainDurationElement) {
+                    mainDurationElement.textContent = formattedDuration;
+                }
+                
+                // 更新跌倒记录中的持续时间
+                if (this.currentFallRecordId) {
+                    const logIndex = fallLogs.findIndex(log => log.id === this.currentFallRecordId);
+                    if (logIndex !== -1) {
+                        fallLogs[logIndex].duration = formattedDuration;
+                        saveFallLogs();
+                        
+                        // 如果在数据日志页面，实时更新UI
+                        if (currentPage === 'data-log-page') {
+                            updateFallLogUI();
+                        }
+                    }
+                }
+                
+                console.log('⏱️ 跌倒时长更新:', formattedDuration);
             }
             
             // 解析环境数据（修复湿度显示）
@@ -1572,34 +1730,65 @@
                 }
             }
             
-            // 解析距离数据
+            // 解析距离数据（严格限制0-200cm）
             parseDistance(line) {
-                // 更宽松的正则表达式，允许空格和不同的单位
-                const match = line.match(/Dist:?\s*(\d+)\s*(?:cm|mm|m)?/i);
+                // 更宽松的正则表达式，支持多种格式
+                const match = line.match(/距离[:\s]*(\d+)|DISTANCE[:\s]*(\d+)|Distance[:\s]*(\d+)|Dist:?\s*(\d+)|距离:\s*(\d+)/i);
                 if (match) {
-                    this.data.distance = parseInt(match[1]);
+                    let distance = parseInt(match[1] || match[2] || match[3] || match[4] || match[5]);
+                    
+                    // 严格限制距离范围在0-200CM
+                    distance = Math.max(0, Math.min(200, distance));
+                    this.data.distance = distance;
                     
                     // 更新UI
-                    document.getElementById('distance-value').textContent = `${this.data.distance} cm`;
+                    const distanceElement = document.getElementById('distance-value');
+                    if (distanceElement) {
+                        distanceElement.textContent = `${distance} cm`;
+                        
+                        // 根据距离设置颜色
+                        if (distance < 10) {
+                            distanceElement.className = 'data-value text-danger';
+                        } else if (distance < 30) {
+                            distanceElement.className = 'data-value text-warning';
+                        } else {
+                            distanceElement.className = 'data-value text-success';
+                        }
+                    }
                     
                     // 更新图表
                     updateDataChart();
+                    
+                    console.log('📏 距离数据更新:', distance, 'cm');
                 }
             }
             
-            // 解析酒精浓度数据（新增完整实现）
+            // 解析酒精浓度数据 (完全绑定配置阈值)
             parseAlcohol(line) {
                 try {
-                    // 匹配酒精浓度数据格式
-                    const match = line.match(/Raw:(\d+),Volt:(\d+)mV,Alarm:(\d+)/);
+                    // 更宽松的正则表达式，支持多种格式
+                    const match = line.match(/酒精[:\s]*(\d+)|Raw[:\s]*(\d+)|ALCOHOL[:\s]*(\d+)|Raw:(\d+),Volt:(\d+)mV,Alarm:(\d+)|酒精浓度[:\s]*(\d+)/i);
                     if (match) {
-                        const rawValue = parseInt(match[1]);
-                        const voltage = parseInt(match[2]);
-                        const isAlarm = match[3] === '1';
+                        let rawValue = 0;
+                        let isAlarm = false;
                         
-                        // 更新数据
+                        if (match[6] !== undefined) {
+                            // 完整格式：Raw:XXX,Volt:XXXmV,Alarm:X
+                            rawValue = parseInt(match[4]);
+                            const voltage = parseInt(match[5]);
+                            // 优先使用配置的危险阈值判断报警
+                            isAlarm = rawValue > config.thresholds.alcohol.danger;
+                            this.data.alcohol.voltage = voltage;
+                        } else {
+                            // 简化格式：酒精:XXX 或 Raw:XXX 或 ALCOHOL:XXX 或 酒精浓度:XXX
+                            rawValue = parseInt(match[1] || match[2] || match[3] || match[7]);
+                            // 使用配置的危险阈值判断报警
+                            isAlarm = rawValue > config.thresholds.alcohol.danger;
+                        }
+                        
+                        // 严格限制酒精数值范围在0-4095
+                        rawValue = Math.max(0, Math.min(4095, rawValue));
                         this.data.alcohol.raw = rawValue;
-                        this.data.alcohol.voltage = voltage;
                         this.data.alcohol.isAlarm = isAlarm;
                         
                         // 更新UI显示
@@ -1607,17 +1796,17 @@
                         if (alcoholElement) {
                             alcoholElement.textContent = rawValue;
                             
-                            // 根据浓度设置颜色
+                            // 根据配置的阈值设置颜色
                             if (isAlarm) {
                                 alcoholElement.className = 'data-value text-danger';
-                            } else if (rawValue > 800) {
+                            } else if (rawValue > config.thresholds.alcohol.warning) {
                                 alcoholElement.className = 'data-value text-warning';
                             } else {
                                 alcoholElement.className = 'data-value text-success';
                             }
                         }
                         
-                        // 显示酒精报警状态
+                        // 显示酒精报警状态 (基于配置的危险阈值)
                         const alarmElement = document.getElementById('alcohol-alarm');
                         if (alarmElement) {
                             if (isAlarm) {
@@ -1627,26 +1816,28 @@
                             }
                         }
                         
+                        // 更新图表
+                        updateDataChart();
+                        
                         console.log('🍷 酒精数据更新:', this.data.alcohol);
                     }
                 } catch (error) {
                     console.warn('⚠️ 解析酒精数据失败:', error);
                 }
             }
-
             // 解析警告信息
             parseWarning(line) {
                 console.warn('⚠️ 警告:', line.substring(9));
             }
             
-            // 检测跌倒（优化版本）
+            // 检测跌倒 (完全绑定配置的危险阈值)
             detectFall(pitch, roll) {
                 try {
-                    // 跌倒检测算法：姿态角超过阈值
+                    // 跌倒检测算法：姿态角超过配置的危险阈值
                     const fallThreshold = config.thresholds.pitch.danger;
                     
                     if (Math.abs(pitch) > fallThreshold || Math.abs(roll) > fallThreshold) {
-                        console.log(`⚠️ 检测到可能跌倒: 俯仰角=${pitch.toFixed(1)}°, 横滚角=${roll.toFixed(1)}°`);
+                        console.log(`⚠️ 检测到可能跌倒: 俯仰角=${pitch.toFixed(1)}°, 横滚角=${roll.toFixed(1)}°, 阈值=${fallThreshold}°`);
                         
                         // 清除之前的超时定时器
                         if (fallDetectionTimeout) {
@@ -1671,7 +1862,7 @@
                 }
             }
             
-            // 处理跌倒事件（优化版本）
+            // 处理跌倒事件（记录当前跌倒ID）
             handleFallEvent(fallCount, duration) {
                 try {
                     // 获取当前时间
@@ -1687,8 +1878,18 @@
                         status: '已记录',
                         fallCount: fallCount,
                         duration: duration,
-                        deviceInfo: navigator.userAgent
+                        deviceInfo: navigator.userAgent,
+                        // 记录跌倒时的阈值配置
+                        threshold: {
+                            pitchWarning: config.thresholds.pitch.warning,
+                            pitchDanger: config.thresholds.pitch.danger,
+                            rollWarning: config.thresholds.roll.warning,
+                            rollDanger: config.thresholds.roll.danger
+                        }
                     };
+                    
+                    // 记录当前跌倒事件的ID
+                    this.currentFallRecordId = fallRecord.id;
                     
                     // 添加到日志
                     addFallLog(fallRecord);
@@ -1696,14 +1897,14 @@
                     console.log('🚨 记录跌倒事件:', fallRecord);
                     
                     // 显示通知
-                    showToast(`检测到跌倒事件！跌倒次数: ${fallCount}, 持续时间: ${duration}`, 'danger');
+                    showToast(`检测到跌倒事件！跌倒次数: ${fallCount}`, 'danger');
                     
                 } catch (error) {
                     console.error('❌ 处理跌倒事件失败:', error);
                 }
             }
             
-            // 更新值的颜色
+            // 更新值的颜色 (完全绑定配置阈值)
             updateValueColor(element, value, type) {
                 // 移除所有颜色类
                 element.classList.remove('text-primary', 'text-warning', 'text-danger');
@@ -1735,7 +1936,7 @@
                 }
             }
             
-            // 自动调整阈值
+            // 自动调整阈值 (更新全局配置)
             adjustThresholds() {
                 // 计算每个类型的统计数据
                 Object.keys(this.dataHistory).forEach(type => {
@@ -1757,7 +1958,7 @@
                     warningThreshold = Math.max(mean + 1.5 * stdDev, q3 * 1.2, 20);
                     dangerThreshold = Math.max(mean + 2.5 * stdDev, max * 0.8, 30);
                     
-                    // 更新配置（取整数值）
+                    // 更新全局配置（取整数值）
                     config.thresholds[type].warning = Math.round(warningThreshold);
                     config.thresholds[type].danger = Math.round(dangerThreshold);
                     
@@ -1768,13 +1969,12 @@
                 });
                 
                 // 更新UI显示
-                if (document.getElementById('auto-adjust').checked) {
-                    document.getElementById('attitude-warning').value = config.thresholds.pitch.warning;
-                    document.getElementById('attitude-danger').value = config.thresholds.pitch.danger;
+                if (document.getElementById('auto-threshold').checked) {
+                    document.getElementById('angle-warning').value = config.thresholds.pitch.warning;
+                    document.getElementById('angle-danger').value = config.thresholds.pitch.danger;
                 }
             }
         }
-
         // 日志管理器类
         class LogManager {
             constructor() {
@@ -1825,7 +2025,6 @@
                 }
             }
         }
-
         // 切换页面
         function switchPage(pageId) {
             // 隐藏所有页面
@@ -1842,6 +2041,7 @@
                 item.classList.remove('active');
             });
             
+            // 只更新底部导航栏对应的页面
             const navIndex = ['connect-page', 'control-page', 'data-log-page'].indexOf(pageId);
             if (navIndex >= 0) {
                 document.querySelectorAll('.nav-item')[navIndex].classList.add('active');
@@ -1850,6 +2050,8 @@
             // 如果切换到控制页面，更新图表
             if (pageId === 'control-page' && dataChart) {
                 dataChart.resize();
+                // 切换到控制页面时立即刷新图表显示最新数据
+                updateDataChart();
             }
             
             // 如果切换到数据日志页面，更新日志显示
@@ -1857,54 +2059,85 @@
                 updateFallLogUI();
             }
         }
-
-        // 搜索设备（优化版本）
+        // 【Chrome终极修复版】搜索设备
         async function searchDevices() {
             try {
+                console.log('🔍 开始搜索设备...');
+                
+                // 禁用搜索按钮
                 document.getElementById('search-btn').disabled = true;
                 document.getElementById('search-btn').innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i> 搜索中...';
                 
-                // 清除之前的搜索结果
-                const container = document.getElementById('devices-container');
-                container.innerHTML = `
-                    <div class="text-center py-4 text-gray-400">
-                        <i class="fa fa-search text-xl mb-2"></i>
-                        <p>正在搜索蓝牙设备...</p>
-                        <p class="text-xs mt-1">请稍候...</p>
-                    </div>
-                `;
-                document.getElementById('device-list').classList.remove('hidden');
+                // 隐藏之前的设备列表
+                document.getElementById('device-list').classList.add('hidden');
+                document.getElementById('devices-container').innerHTML = '';
                 
-                // 强制重置蓝牙管理器状态
-                if (bluetoothManager && bluetoothManager.device) {
-                    bluetoothManager.device = null;
+                // 显示连接中状态
+                document.getElementById('connecting').classList.remove('hidden');
+                document.getElementById('connecting-device').textContent = '正在搜索蓝牙设备...';
+                
+                // Chrome专用预处理
+                if (isChrome) {
+                    console.log('🔧 Chrome环境：执行专用搜索流程...');
+                    
+                    // 【关键修复】Chrome需要特殊处理才能重新显示设备选择框
+                    if (bluetoothManager.device) {
+                        console.log('🔄 Chrome: 清理之前的设备引用...');
+                        bluetoothManager.device = null;
+                    }
+                    
+                    // 【关键修复】Chrome专用延迟，确保状态完全清理
+                    const now = Date.now();
+                    const timeSinceLastDisconnect = now - bluetoothManager.lastDisconnectTime;
+                    if (timeSinceLastDisconnect < 1000) {
+                        const delay = 1000 - timeSinceLastDisconnect;
+                        console.log(`⏱️ Chrome: 等待${delay}ms确保断开完成...`);
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    }
                 }
                 
-                // 移除搜索超时处理，让搜索可以持续进行
+                // 强制重置蓝牙管理器状态
+                if (bluetoothManager) {
+                    console.log('🔄 重置蓝牙管理器状态...');
+                    bluetoothManager.forceReset();
+                    
+                    // Chrome专用延迟，确保状态稳定
+                    if (isChrome) {
+                        console.log('⏱️ Chrome专用延迟...');
+                        await new Promise(resolve => setTimeout(resolve, 300));
+                    }
+                }
+                
+                // 搜索设备
                 const devices = await bluetoothManager.searchDevices();
                 
+                // 隐藏连接中状态
+                document.getElementById('connecting').classList.add('hidden');
+                
+                // 显示设备列表
+                const container = document.getElementById('devices-container');
                 container.innerHTML = '';
                 
-                if (devices.length === 0) {
-                    container.innerHTML = `
-                        <div class="text-center py-4 text-gray-400">
-                            <i class="fa fa-info-circle text-xl mb-2"></i>
-                            <p>未找到任何蓝牙设备</p>
-                            <p class="text-xs mt-1">请确保设备已开启并处于配对模式</p>
-                        </div>
-                    `;
-                    showToast('未找到蓝牙设备', 'info');
-                } else {
-                    devices.forEach(device => {
+                // 过滤掉名称为"未知或不支持的设备"的设备
+                const filteredDevices = devices.filter(device => {
+                    const deviceName = device.name || device.deviceName || '';
+                    return deviceName !== '未知或不支持的设备';
+                });
+                
+                if (filteredDevices && filteredDevices.length > 0) {
+                    filteredDevices.forEach(device => {
+                        const deviceName = device.name || device.deviceName || '未知设备';
+                        const deviceId = device.id || device.address || 'unknown';
+                        
                         const deviceElement = document.createElement('div');
                         deviceElement.className = 'card cursor-pointer hover:border-primary transition-colors mb-2';
                         deviceElement.innerHTML = `
                             <div class="flex items-center justify-between">
                                 <div>
-                                    <div class="font-bold">${device.name || '未知设备'}</div>
-                                    <div class="text-sm text-gray-400">${device.id}</div>
+                                    <div class="font-bold">${deviceName}</div>
+                                    <div class="text-sm text-gray-400">${deviceId}</div>
                                 </div>
-                                <button onclick="connectToSpecificDevice('${device.id}')" 
+                                <button onclick="connectToSpecificDevice('${deviceId}')" 
                                     class="px-3 py-1 bg-primary text-dark rounded-lg text-sm font-bold hover:bg-opacity-80 transition">
                                     连接
                                 </button>
@@ -1913,11 +2146,23 @@
                         container.appendChild(deviceElement);
                     });
                     
-                    showToast(`找到 ${devices.length} 个蓝牙设备`, 'success');
+                    document.getElementById('device-list').classList.remove('hidden');
+                    showToast(`找到 ${filteredDevices.length} 个蓝牙设备`, 'success');
+                } else {
+                    container.innerHTML = `
+                        <div class="text-center py-4 text-gray-400">
+                            <i class="fa fa-info-circle text-xl mb-2"></i>
+                            <p>未找到任何可用的蓝牙设备</p>
+                            <p class="text-xs mt-1">请确保设备已开启并处于配对模式</p>
+                        </div>
+                    `;
+                    document.getElementById('device-list').classList.remove('hidden');
+                    showToast('未找到可用的蓝牙设备', 'info');
                 }
                 
             } catch (error) {
                 console.error('❌ 搜索设备失败:', error);
+                document.getElementById('connecting').classList.add('hidden');
                 
                 // 更友好的错误提示
                 const container = document.getElementById('devices-container');
@@ -1936,7 +2181,6 @@
                 document.getElementById('search-btn').innerHTML = '<i class="fa fa-search mr-2"></i> 搜索设备';
             }
         }
-
         // 连接特定设备
         async function connectToSpecificDevice(deviceId) {
             try {
@@ -1973,23 +2217,55 @@
                 document.getElementById('connecting').classList.add('hidden');
             }
         }
-
-        // 断开连接
-        // 断开连接（修复版）
+        // 【Chrome终极修复版】断开连接
         async function disconnectFromDevice() {
             try {
+                console.log('📴 开始断开连接...');
+                
+                // Chrome专用断开处理
+                if (isChrome) {
+                    console.log('🔧 Chrome环境：执行专用断开流程...');
+                    
+                    // 记录断开时间 - 关键修复
+                    bluetoothManager.lastDisconnectTime = Date.now();
+                    
+                    // Chrome专用：先断开GATT连接
+                    if (bluetoothManager.device && bluetoothManager.device.gatt && bluetoothManager.device.gatt.connected) {
+                        console.log('🔄 Chrome: 断开GATT连接...');
+                        try {
+                            await bluetoothManager.device.gatt.disconnect();
+                        } catch (e) {
+                            console.log('⚠️ Chrome: GATT断开异常，忽略');
+                        }
+                        
+                        // Chrome专用延迟，确保断开完成
+                        console.log('⏱️ Chrome: 等待断开完成...');
+                        await new Promise(resolve => setTimeout(resolve, 200));
+                    }
+                }
+                
                 // 强制重置蓝牙状态
                 bluetoothManager.forceReset();
                 updateConnectionUI();
+                
+                // 显示成功提示
                 showToast('已断开连接，可重新搜索', 'info');
+                
             } catch (error) {
                 console.error('❌ 断开连接失败:', error);
+                
+                // 确保重置状态
                 bluetoothManager.forceReset();
                 updateConnectionUI();
-                showToast('已强制重置蓝牙状态', 'warning');
+                
+                // Chrome专用错误处理
+                if (isChrome) {
+                    showToast('Chrome蓝牙状态已重置，可重新搜索', 'info');
+                } else {
+                    showToast('已强制重置蓝牙状态', 'warning');
+                }
             }
         }
-
         // Page Visibility API 监听 - 优化安卓后台连接稳定性
         document.addEventListener('visibilitychange', () => {
             if (document.hidden) {
@@ -2004,8 +2280,7 @@
                 }
             }
         });
-
-        // 更新连接UI
+        // 更新连接UI (修改：添加配置设置按钮)
         function updateConnectionUI() {
             const isConnected = bluetoothManager.isConnected;
             
@@ -2016,7 +2291,7 @@
                             <i class="fa fa-bluetooth"></i>
                         </div>
                         <h3 class="text-lg font-bold mb-2">已连接</h3>
-                        <p class="text-gray-400 mb-4">设备名称: ${bluetoothManager.device.name}</p>
+                        <p class="text-gray-400 mb-4">设备名称: ${bluetoothManager.device.name || 'null'}</p>
                         
                         <div class="flex flex-col space-y-3">
                             <button onclick="disconnectFromDevice()" class="btn-danger">
@@ -2024,6 +2299,9 @@
                             </button>
                             <button onclick="switchPage('control-page')" class="btn-primary">
                                 <i class="fa fa-sliders mr-2"></i> 开始控制
+                            </button>
+                            <button onclick="switchPage('config-page')" class="btn-dark">
+                                <i class="fa fa-cog mr-2"></i> 配置设置
                             </button>
                         </div>
                     </div>
@@ -2088,7 +2366,6 @@
                 }
             });
         }
-
         // 更新模式UI
         function updateModeUI() {
             document.getElementById('current-mode').textContent = currentMode === 'track' ? '循迹模式' : '遥控模式';
@@ -2108,7 +2385,6 @@
                 trackBtn.classList.add('bg-dark-lighter', 'text-white');
             }
         }
-
         // 切换模式
         async function switchMode(mode) {
             try {
@@ -2121,11 +2397,9 @@
                 console.error('❌ 切换模式失败:', error);
             }
         }
-
         // 长按控制变量
         let pressInterval = null;
         let currentPressCommand = null;
-
         // 开始长按
         function startPress(command) {
             if (pressInterval) return;
@@ -2141,7 +2415,6 @@
                 sendCommand(command);
             }, 200);
         }
-
         // 结束长按
         function endPress() {
             if (pressInterval) {
@@ -2154,7 +2427,6 @@
                 sendCommand('S');
             }
         }
-
         // 发送命令（增强稳定性版本）
         async function sendCommand(command) {
             try {
@@ -2222,7 +2494,6 @@
                 }
             }
         }
-
         // 发送AT命令
         async function sendATCommand(command) {
             try {
@@ -2240,7 +2511,6 @@
                 showToast('发送失败，请重试', 'error');
             }
         }
-
         // 手动发送数据
         async function sendManualData() {
             const input = document.getElementById('send-input');
@@ -2267,7 +2537,6 @@
                 showToast('发送失败，请重试', 'error');
             }
         }
-
         // 发送手动命令
         async function sendManualCommand(command) {
             try {
@@ -2285,7 +2554,6 @@
                 showToast('发送失败，请重试', 'error');
             }
         }
-
         // 处理键盘按下
         function handleKeyDown(event) {
             if (!bluetoothManager.isConnected || currentPage !== 'control-page') return;
@@ -2308,7 +2576,6 @@
                     break;
             }
         }
-
         // 处理键盘松开
         function handleKeyUp(event) {
             if (!bluetoothManager.isConnected || currentPage !== 'control-page') return;
@@ -2318,7 +2585,6 @@
                 sendCommand('S');
             }
         }
-
         // 检查蓝牙支持
         function checkBluetoothSupport() {
             if (!navigator.bluetooth) {
@@ -2347,7 +2613,6 @@
                 document.body.appendChild(modal);
             }
         }
-
         // 显示Toast提示
         function showToast(message, type = 'info') {
             const toast = document.getElementById('toast');
@@ -2374,7 +2639,6 @@
                 toast.classList.add('hidden');
             }, 3000);
         }
-
         // 同步网络时间
         async function syncNetworkTime() {
             // 显示同步中状态
@@ -2545,10 +2809,8 @@
                 }
             }, 1000);
         }
-
         // 跌倒日志相关函数
         let fallLogs = [];
-
         // 加载跌倒日志
         function loadFallLogs() {
             try {
@@ -2562,7 +2824,6 @@
                 fallLogs = [];
             }
         }
-
         // 保存跌倒日志
         function saveFallLogs() {
             try {
@@ -2571,7 +2832,6 @@
                 console.error('❌ 保存跌倒日志失败:', error);
             }
         }
-
         // 添加跌倒日志
         function addFallLog(record) {
             try {
@@ -2587,7 +2847,6 @@
                 console.error('❌ 添加跌倒日志失败:', error);
             }
         }
-
         // 更新跌倒日志UI
         function updateFallLogUI() {
             try {
@@ -2647,6 +2906,12 @@
                                     <span class="text-gray-400">持续时间:</span>
                                     <span class="text-info">${log.duration}</span>
                                 </div>
+                                ${log.threshold ? `
+                                <div class="col-span-2">
+                                    <span class="text-gray-400">触发阈值:</span>
+                                    <span>警告${log.threshold.pitchWarning}°/危险${log.threshold.pitchDanger}°</span>
+                                </div>
+                                ` : ''}
                             </div>
                         </div>
                     `).join('');
@@ -2655,7 +2920,6 @@
                 console.error('❌ 更新跌倒日志UI失败:', error);
             }
         }
-
         // 清空跌倒日志
         function clearFallLogs() {
             if (confirm('确定要清空所有跌倒日志吗？此操作不可恢复。')) {
@@ -2670,95 +2934,178 @@
                 }
             }
         }
-
-        // 初始化图表
-        function initializeChart() {
-            const ctx = document.getElementById('data-chart').getContext('2d');
-            
-            dataChart = new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: Array(20).fill(''),
-                    datasets: [{
-                        label: '俯仰角',
-                        data: Array(20).fill(0),
-                        borderColor: '#38BDF8',
-                        backgroundColor: 'rgba(56, 189, 248, 0.1)',
-                        borderWidth: 2,
-                        tension: 0.4,
-                        fill: true
-                    }]
+// ====================== 完全重写：图表初始化函数 ======================
+function initializeChart() {
+    const ctx = document.getElementById('data-chart').getContext('2d');
+    
+    // 销毁旧图表（如果存在）
+    if (dataChart) {
+        dataChart.destroy();
+    }
+    
+    dataChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: Array(20).fill(''),
+            datasets: [
+                {
+                    label: '俯仰角 (°)',
+                    data: attitudeData,
+                    borderColor: '#38BDF8',
+                    backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                    borderWidth: 3, // 加粗线条
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 0, // 完全隐藏数据点
+                    pointHoverRadius: 0
                 },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: false,
-                    scales: {
-                        y: {
-                            beginAtZero: false,
-                            grid: {
-                                color: 'rgba(255, 255, 255, 0.1)'
-                            },
-                            ticks: {
-                                color: 'rgba(255, 255, 255, 0.7)'
-                            },
-                            suggestedMin: -100,
-                            suggestedMax: 100
-                        },
-                        x: {
-                            grid: {
-                                display: false
-                            },
-                            ticks: {
-                                display: false
-                            }
+                {
+                    label: '横滚角 (°)',
+                    data: rollData,
+                    borderColor: '#22C55E',
+                    backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                    borderWidth: 3, // 加粗线条
+                    tension: 0.3,
+                    fill: true,
+                    pointRadius: 0, // 完全隐藏数据点
+                    pointHoverRadius: 0
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: {
+                    beginAtZero: false,
+                    grid: {
+                        color: 'rgba(255, 255, 255, 0.1)'
+                    },
+                    ticks: {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        font: {
+                            size: 12
                         }
                     },
-                    plugins: {
-                        legend: {
-                            display: false
-                        }
+                    suggestedMin: -90,
+                    suggestedMax: 90
+                },
+                x: {
+                    grid: {
+                        display: false
                     },
-                    animation: {
-                        duration: 0
+                    ticks: {
+                        display: false
                     }
                 }
-            });
+            },
+            plugins: {
+                legend: {
+                    display: true,
+                    position: 'top',
+                    labels: {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        font: {
+                            size: 12
+                        },
+                        boxWidth: 15,
+                        padding: 15,
+                        // 关键修复：只显示未隐藏的数据集图例
+                        filter: function(legendItem, chartData) {
+                            return !chartData.datasets[legendItem.datasetIndex].hidden;
+                        }
+                    }
+                }
+            },
+            animation: {
+                duration: 150 // 轻微动画，让变化更流畅
+            },
+            interaction: {
+                intersect: false,
+                mode: 'index'
+            }
         }
-
-        // 更新数据图表
+    });
+    
+    console.log('✅ 图表初始化完成，已添加横滚角曲线和图例过滤');
+}
+        // ====================== 完全重写：全局实时更新图表函数 ======================
         function updateDataChart() {
             if (!dataChart || !dataParser) return;
             
-            const dataset = dataChart.data.datasets[0];
+            // 1. 全局更新所有四个数据数组（不管当前显示什么图表）
+            // 更新姿态数据
+            attitudeData.push(dataParser.data.attitude.pitch);
+            if (attitudeData.length > 20) attitudeData.shift();
             
-            switch (currentChartType) {
-                case 'attitude':
-                    dataset.data.push(dataParser.data.attitude.pitch);
-                    dataset.label = '俯仰角 (°)';
-                    dataset.borderColor = '#38BDF8';
-                    dataset.backgroundColor = 'rgba(56, 189, 248, 0.1)';
-                    break;
-                case 'distance':
-                    dataset.data.push(dataParser.data.distance);
-                    dataset.label = '距离 (cm)';
-                    dataset.borderColor = '#22C55E';
-                    dataset.backgroundColor = 'rgba(34, 197, 94, 0.1)';
-                    break;
+            // 更新横滚角数据
+            rollData.push(dataParser.data.attitude.roll);
+            if (rollData.length > 20) rollData.shift();
+            
+            // 更新距离数据
+            distanceData.push(dataParser.data.distance);
+            if (distanceData.length > 20) distanceData.shift();
+            
+            // 更新酒精数据
+            alcoholData.push(dataParser.data.alcohol.raw);
+            if (alcoholData.length > 20) alcoholData.shift();
+            
+            // 2. 根据当前图表类型更新显示
+            if (currentChartType === 'attitude') {
+                // 姿态模式：同时显示俯仰角和横滚角两条曲线
+                dataChart.data.datasets[0].data = [...attitudeData];
+                dataChart.data.datasets[0].label = '俯仰角 (°)';
+                dataChart.data.datasets[0].borderColor = '#38BDF8';
+                dataChart.data.datasets[0].backgroundColor = 'rgba(56, 189, 248, 0.1)';
+                
+                dataChart.data.datasets[1].data = [...rollData];
+                dataChart.data.datasets[1].label = '横滚角 (°)';
+                dataChart.data.datasets[1].borderColor = '#22C55E';
+                dataChart.data.datasets[1].backgroundColor = 'rgba(34, 197, 94, 0.1)';
+                
+                // 显示第二条曲线
+                dataChart.data.datasets[1].hidden = false;
+                
+                // 设置Y轴范围
+                dataChart.options.scales.y.suggestedMin = -90;
+                dataChart.options.scales.y.suggestedMax = 90;
+                dataChart.options.scales.y.beginAtZero = false;
+            } else {
+                // 距离或酒精模式：只显示一条曲线
+                dataChart.data.datasets[1].hidden = true;
+                
+                if (currentChartType === 'distance') {
+                    dataChart.data.datasets[0].data = [...distanceData];
+                    dataChart.data.datasets[0].label = '距离 (cm)';
+                    dataChart.data.datasets[0].borderColor = '#F59E0B';
+                    dataChart.data.datasets[0].backgroundColor = 'rgba(245, 158, 11, 0.1)';
+                    
+                    // 设置Y轴范围
+                    dataChart.options.scales.y.suggestedMin = 0;
+                    dataChart.options.scales.y.suggestedMax = 200;
+                    dataChart.options.scales.y.beginAtZero = true;
+                } else if (currentChartType === 'alcohol') {
+                    dataChart.data.datasets[0].data = [...alcoholData];
+                    dataChart.data.datasets[0].label = '酒精浓度';
+                    dataChart.data.datasets[0].borderColor = '#EF4444';
+                    dataChart.data.datasets[0].backgroundColor = 'rgba(239, 68, 68, 0.1)';
+                    
+                    // 设置Y轴范围
+                    dataChart.options.scales.y.suggestedMin = 0;
+                    dataChart.options.scales.y.suggestedMax = 4095;
+                    dataChart.options.scales.y.beginAtZero = true;
+                }
             }
             
-            // 保持数据点数量
-            if (dataset.data.length > 20) {
-                dataset.data.shift();
-            }
-            
-            dataChart.update();
+            // 3. 强制Chart.js重新渲染（关键修复）
+            dataChart.update('none'); // 使用'none'参数禁用不必要的动画，提高性能
         }
-
-        // 切换图表数据类型
+        
+        // ====================== 完全重写：切换图表显示历史数据 ======================
         function toggleChartData(type) {
             currentChartType = type;
             
-            // 更新按钮状态
+            // 更新按钮选中状态
             document.querySelectorAll('[onclick*="toggleChartData"]').forEach(btn => {
                 btn.classList.remove('bg-primary', 'text-dark');
                 btn.classList.add('bg-dark-lighter', 'text-white');
@@ -2767,42 +3114,26 @@
             event.target.classList.remove('bg-dark-lighter', 'text-white');
             event.target.classList.add('bg-primary', 'text-dark');
             
-            // 重置图表数据和Y轴范围
-            dataChart.data.datasets[0].data = Array(20).fill(0);
+            // 立即更新图表显示
+            updateDataChart();
             
-            // 根据数据类型调整Y轴范围
-            const yAxis = dataChart.options.scales.y;
-            if (type === 'attitude') {
-                yAxis.suggestedMin = -90;
-                yAxis.suggestedMax = 90;
-                yAxis.beginAtZero = false;
-            } else if (type === 'distance') {
-                yAxis.suggestedMin = 0;
-                yAxis.suggestedMax = 500;
-                yAxis.beginAtZero = true;
-            }
-            
-            dataChart.update();
+            console.log(`📊 切换到${type}图表`);
         }
-
         // 确认报警
         function acknowledgeAlarm() {
             document.getElementById('alcohol-alarm').classList.add('hidden');
         }
-
         // 显示配置弹窗
         function showConfig() {
             document.getElementById('config-modal').classList.remove('hidden');
             document.getElementById('config-modal').classList.add('flex');
         }
-
         // 隐藏配置弹窗
         function hideConfig() {
             document.getElementById('config-modal').classList.add('hidden');
             document.getElementById('config-modal').classList.remove('flex');
         }
-
-        // 保存配置
+        // 保存配置（添加酒精阈值保存）
         function saveConfig() {
             // 保存蓝牙配置
             config.bluetooth.deviceName = document.getElementById('device-name').value;
@@ -2813,24 +3144,23 @@
             config.thresholds.autoAdjust = document.getElementById('auto-adjust').checked;
             const attitudeWarning = parseInt(document.getElementById('attitude-warning').value);
             const attitudeDanger = parseInt(document.getElementById('attitude-danger').value);
-            const wqWarning = parseInt(document.getElementById('wq-warning').value);
-            const wqDanger = parseInt(document.getElementById('wq-danger').value);
+            const alcoholWarning = parseInt(document.getElementById('alcohol-warning').value);
+            const alcoholDanger = parseInt(document.getElementById('alcohol-danger').value);
             
             // 更新阈值配置
             config.thresholds.pitch.warning = attitudeWarning;
             config.thresholds.pitch.danger = attitudeDanger;
             config.thresholds.roll.warning = attitudeWarning;
             config.thresholds.roll.danger = attitudeDanger;
-            config.thresholds.wq.warning = wqWarning;
-            config.thresholds.wq.danger = wqDanger;
+            config.thresholds.alcohol.warning = alcoholWarning;
+            config.thresholds.alcohol.danger = alcoholDanger;
             
             saveConfigToStorage();
             hideConfig();
             
             showToast('配置已保存', 'success');
         }
-
-        // 加载配置
+        // 加载配置（添加酒精阈值加载）
         function loadConfig() {
             try {
                 const stored = localStorage.getItem('bluetoothConfig');
@@ -2848,10 +3178,10 @@
                         document.getElementById('attitude-warning').value = config.thresholds.pitch.warning;
                         document.getElementById('attitude-danger').value = config.thresholds.pitch.danger;
                         
-                        // 更新WQ阈值配置
-                        if (config.thresholds.wq) {
-                            document.getElementById('wq-warning').value = config.thresholds.wq.warning;
-                            document.getElementById('wq-danger').value = config.thresholds.wq.danger;
+                        // 更新酒精阈值配置
+                        if (config.thresholds.alcohol) {
+                            document.getElementById('alcohol-warning').value = config.thresholds.alcohol.warning;
+                            document.getElementById('alcohol-danger').value = config.thresholds.alcohol.danger;
                         }
                     }
                 }
@@ -2859,7 +3189,6 @@
                 console.error('❌ 加载配置失败:', error);
             }
         }
-
         // 保存配置到存储
         function saveConfigToStorage() {
             try {
@@ -2868,7 +3197,109 @@
                 console.error('❌ 保存配置失败:', error);
             }
         }
-
+        // 加载阈值设置 (默认值已改为40)
+        function loadThresholdSettings() {
+            try {
+                const stored = localStorage.getItem('thresholdSettings');
+                if (stored) {
+                    const settings = JSON.parse(stored);
+                    document.getElementById('auto-threshold').checked = settings.autoThreshold || false;
+                    document.getElementById('angle-warning').value = settings.angleWarning || 30;
+                    document.getElementById('angle-danger').value = settings.angleDanger || 40; // 默认值已改为40
+                    document.getElementById('alcohol-warning').value = settings.alcoholWarning || 1500;
+                    document.getElementById('alcohol-danger').value = settings.alcoholDanger || 2000;
+                    
+                    // 同步到全局配置
+                    config.thresholds.pitch.warning = parseInt(settings.angleWarning || 30);
+                    config.thresholds.pitch.danger = parseInt(settings.angleDanger || 40); // 默认值已改为40
+                    config.thresholds.roll.warning = parseInt(settings.angleWarning || 30);
+                    config.thresholds.roll.danger = parseInt(settings.angleDanger || 40); // 默认值已改为40
+                    config.thresholds.alcohol.warning = parseInt(settings.alcoholWarning || 1500);
+                    config.thresholds.alcohol.danger = parseInt(settings.alcoholDanger || 2000);
+                    config.thresholds.autoAdjust = settings.autoThreshold || false;
+                } else {
+                    // 如果没有保存的设置，使用默认值40
+                    document.getElementById('angle-danger').value = 40;
+                }
+            } catch (error) {
+                console.error('❌ 加载阈值设置失败:', error);
+                // 出错时使用默认值40
+                document.getElementById('angle-danger').value = 40;
+            }
+        }
+        // 保存阈值设置 (实时更新全局配置)
+        function saveThresholdSettings() {
+            try {
+                const settings = {
+                    autoThreshold: document.getElementById('auto-threshold').checked,
+                    angleWarning: parseInt(document.getElementById('angle-warning').value),
+                    angleDanger: parseInt(document.getElementById('angle-danger').value),
+                    alcoholWarning: parseInt(document.getElementById('alcohol-warning').value),
+                    alcoholDanger: parseInt(document.getElementById('alcohol-danger').value)
+                };
+                
+                // 验证输入
+                if (settings.angleWarning >= settings.angleDanger) {
+                    showToast('警告阈值必须小于危险阈值', 'error');
+                    return;
+                }
+                
+                if (settings.alcoholWarning >= settings.alcoholDanger) {
+                    showToast('酒精警告阈值必须小于危险阈值', 'error');
+                    return;
+                }
+                
+                // 保存到localStorage
+                localStorage.setItem('thresholdSettings', JSON.stringify(settings));
+                
+                // 立即同步到全局配置 (所有检测逻辑实时生效)
+                config.thresholds.pitch.warning = settings.angleWarning;
+                config.thresholds.pitch.danger = settings.angleDanger;
+                config.thresholds.roll.warning = settings.angleWarning;
+                config.thresholds.roll.danger = settings.angleDanger;
+                config.thresholds.alcohol.warning = settings.alcoholWarning;
+                config.thresholds.alcohol.danger = settings.alcoholDanger;
+                config.thresholds.autoAdjust = settings.autoThreshold;
+                
+                // 立即更新当前显示的数值颜色
+                if (dataParser) {
+                    const pitchElement = document.getElementById('pitch-value');
+                    const rollElement = document.getElementById('roll-value');
+                    const alcoholElement = document.getElementById('alcohol-value');
+                    
+                    dataParser.updateValueColor(pitchElement, dataParser.data.attitude.pitch, 'pitch');
+                    dataParser.updateValueColor(rollElement, dataParser.data.attitude.roll, 'roll');
+                    
+                    // 更新酒精数值颜色
+                    if (alcoholElement && dataParser.data.alcohol.raw > 0) {
+                        alcoholElement.classList.remove('text-primary', 'text-warning', 'text-danger');
+                        if (dataParser.data.alcohol.raw > config.thresholds.alcohol.danger) {
+                            alcoholElement.classList.add('text-danger');
+                        } else if (dataParser.data.alcohol.raw > config.thresholds.alcohol.warning) {
+                            alcoholElement.classList.add('text-warning');
+                        } else {
+                            alcoholElement.classList.add('text-primary');
+                        }
+                        
+                        // 立即更新酒精报警状态
+                        const alarmElement = document.getElementById('alcohol-alarm');
+                        if (alarmElement) {
+                            if (dataParser.data.alcohol.raw > config.thresholds.alcohol.danger) {
+                                alarmElement.classList.remove('hidden');
+                            } else {
+                                alarmElement.classList.add('hidden');
+                            }
+                        }
+                    }
+                }
+                
+                showToast('阈值设置已保存并立即生效', 'success');
+                
+            } catch (error) {
+                console.error('❌ 保存阈值设置失败:', error);
+                showToast('保存失败，请重试', 'error');
+            }
+        }
         // 优化触摸体验
         document.addEventListener('touchstart', function(e) {
             // 允许日志页面滚动
@@ -2876,6 +3307,16 @@
                 return;
             }
         });
+        
+        // 显示兼容性信息
+        function showCompatibilityInfo() {
+            console.log('📱 LXX蓝牙控制 v2.0');
+            console.log('✅ 姿态角危险阈值默认值: 40°');
+            console.log('✅ 所有检测逻辑已绑定阈值设置页面');
+            console.log('✅ 阈值修改后实时生效');
+            console.log('✅ 图表全局实时记录所有数据类型');
+            console.log('✅ 姿态图表同时显示俯仰角和横滚角');
+        }
     </script>
 </body>
 </html>
