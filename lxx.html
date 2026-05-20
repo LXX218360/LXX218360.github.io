@@ -113,9 +113,6 @@
                         <button id="search-btn" onclick="searchDevices()" class="btn-primary">
                             <i class="fa fa-search mr-2"></i> 搜索设备
                         </button>
-                        <button id="config-btn" onclick="showConfig()" class="btn-secondary">
-                            <i class="fa fa-cog mr-2"></i> 配置设置
-                        </button>
                     </div>
                 </div>
             </div>
@@ -2280,7 +2277,7 @@
                 }
             }
         });
-        // 更新连接UI (修改：添加配置设置按钮)
+        // 更新连接UI (修改：删除未连接状态的配置设置按钮)
         function updateConnectionUI() {
             const isConnected = bluetoothManager.isConnected;
             
@@ -2327,9 +2324,6 @@
                         <div class="flex flex-col space-y-3">
                             <button onclick="searchDevices()" class="btn-primary">
                                 <i class="fa fa-search mr-2"></i> 搜索设备
-                            </button>
-                            <button onclick="showConfig()" class="btn-secondary">
-                                <i class="fa fa-cog mr-2"></i> 配置设置
                             </button>
                         </div>
                     </div>
