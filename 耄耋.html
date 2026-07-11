@@ -1,0 +1,2394 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="format-detection" content="telephone=no">
+    <meta name="msapplication-tap-highlight" content="no">
+    <title>智能滴液监测系统</title>
+    <meta name="description" content="医院智能滴液监测系统，实时监控滴速、剩余时间，自动报警">
+    <meta name="theme-color" content="#0B1426">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="滴液监测">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>💧</text></svg>">
+    <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='0.9em' font-size='90'>💧</text></svg>">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;600;700;800&family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome 4.7 -->
+    <link href="https://cdn.jsdelivr.net/npm/font-awesome@4.7.0/css/font-awesome.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#00D4FF',
+                        secondary: '#00E676',
+                        warning: '#FFB300',
+                        danger: '#FF3D57',
+                        dark: '#0B1426',
+                        'dark-mid': '#111D35',
+                        'dark-card': '#152238',
+                        'dark-light': '#1A2A48',
+                        'dark-lighter': '#243656',
+                        'dark-border': '#2A3E5C',
+                        'text-primary': '#E8EDF5',
+                        'text-secondary': '#8899B4',
+                        'text-muted': '#5A6E8C'
+                    },
+                    fontFamily: {
+                        mono: ['JetBrains Mono', 'monospace'],
+                        sans: ['Noto Sans SC', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* ============ 全局基础样式 ============ */
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background: #0B1426;
+            color: #E8EDF5;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+        /* 动态渐变背景 */
+        .bg-animated {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background:
+                radial-gradient(ellipse at 20% 80%, rgba(0,212,255,0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 20%, rgba(0,230,118,0.06) 0%, transparent 50%),
+                radial-gradient(ellipse at 50% 50%, rgba(0,100,200,0.05) 0%, transparent 70%),
+                #0B1426;
+            animation: bgShift 20s ease-in-out infinite;
+        }
+        @keyframes bgShift {
+            0%, 100% { filter: hue-rotate(0deg); }
+            50% { filter: hue-rotate(15deg); }
+        }
+
+        /* 网格纹理叠加 */
+        .bg-grid {
+            position: fixed;
+            inset: 0;
+            z-index: -1;
+            background-image:
+                linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+            background-size: 60px 60px;
+            mask-image: radial-gradient(ellipse at center, black 30%, transparent 80%);
+        }
+
+        /* ============ 卡片样式（毛玻璃+霓虹） ============ */
+        .card {
+            background: linear-gradient(135deg, rgba(21,34,56,0.9) 0%, rgba(26,42,72,0.85) 100%);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(42,62,92,0.6);
+            border-radius: 16px;
+            padding: 20px;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0,212,255,0.4), transparent);
+        }
+        .card::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 16px;
+            padding: 1px;
+            background: linear-gradient(135deg, rgba(0,212,255,0.1), transparent 40%, transparent 60%, rgba(0,230,118,0.08));
+            -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+            pointer-events: none;
+        }
+        .card:hover {
+            border-color: rgba(0,212,255,0.25);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 40px rgba(0,212,255,0.08), 0 0 60px rgba(0,212,255,0.03);
+        }
+        .card-glow {
+            box-shadow: 0 4px 30px rgba(0,212,255,0.06), inset 0 1px 0 rgba(255,255,255,0.04);
+        }
+
+        /* ============ 数据卡片 ============ */
+        .data-card {
+            background: linear-gradient(180deg, rgba(21,34,56,0.9) 0%, rgba(17,29,53,0.85) 100%);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(42,62,92,0.5);
+            border-radius: 14px;
+            padding: 16px 12px;
+            text-align: center;
+            position: relative;
+            transition: all 0.3s ease;
+            overflow: hidden;
+        }
+        .data-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(0,212,255,0.3), transparent);
+        }
+        .data-card:hover {
+            border-color: rgba(0,212,255,0.3);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(0,212,255,0.06);
+        }
+        .data-card .label {
+            font-size: 12px;
+            color: #5A6E8C;
+            margin-bottom: 6px;
+            letter-spacing: 0.5px;
+        }
+        .data-card .value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 28px;
+            font-weight: 700;
+            line-height: 1.2;
+        }
+        .data-card .unit {
+            font-size: 11px;
+            color: #5A6E8C;
+            margin-top: 4px;
+        }
+
+        /* ============ 按钮样式 ============ */
+        .btn-primary {
+            background: linear-gradient(135deg, #00A3CC, #00D4FF);
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-family: 'Noto Sans SC', sans-serif;
+            font-size: 15px;
+            position: relative;
+            overflow: hidden;
+        }
+        .btn-primary::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            background: linear-gradient(135deg, rgba(255,255,255,0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s;
+        }
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0,212,255,0.4), 0 0 40px rgba(0,212,255,0.15);
+        }
+        .btn-primary:hover::before { opacity: 1; }
+        .btn-primary:active { transform: scale(0.97); }
+        .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; transform: none; box-shadow: none; }
+
+        .btn-secondary {
+            background: transparent;
+            color: #00D4FF;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 12px;
+            border: 1px solid #00D4FF;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Noto Sans SC', sans-serif;
+            font-size: 15px;
+        }
+        .btn-secondary:hover { background: rgba(0,212,255,0.1); }
+        .btn-secondary:active { transform: scale(0.97); }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #CC3344, #FF3D57);
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Noto Sans SC', sans-serif;
+            font-size: 15px;
+        }
+        .btn-danger:hover { box-shadow: 0 6px 20px rgba(255,61,87,0.3); }
+        .btn-danger:active { transform: scale(0.97); }
+
+        .btn-success {
+            background: linear-gradient(135deg, #00B35E, #00E676);
+            color: white;
+            font-weight: 600;
+            padding: 12px 24px;
+            border-radius: 12px;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-family: 'Noto Sans SC', sans-serif;
+            font-size: 15px;
+        }
+        .btn-success:hover { box-shadow: 0 6px 20px rgba(0,230,118,0.3); }
+        .btn-success:active { transform: scale(0.97); }
+        .btn-success:disabled { opacity: 0.4; cursor: not-allowed; }
+
+        .btn-sm {
+            padding: 8px 16px;
+            font-size: 13px;
+            border-radius: 10px;
+        }
+
+        /* ============ 输入框 ============ */
+        .input-field {
+            width: 100%;
+            background: rgba(11,20,38,0.8);
+            border: 1px solid rgba(42,62,92,0.6);
+            border-radius: 10px;
+            padding: 10px 14px;
+            color: #E8EDF5;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 15px;
+            transition: all 0.3s;
+            outline: none;
+            backdrop-filter: blur(10px);
+        }
+        .input-field:focus {
+            border-color: rgba(0,212,255,0.6);
+            box-shadow: 0 0 0 2px rgba(0,212,255,0.15), 0 0 20px rgba(0,212,255,0.1);
+            background: rgba(11,20,38,0.95);
+        }
+
+        /* ============ 滚动条隐藏 ============ */
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+        /* ============ 状态指示灯呼吸动画 ============ */
+        .status-dot {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            display: inline-block;
+            position: relative;
+        }
+        .status-dot::after {
+            content: '';
+            position: absolute;
+            inset: -4px;
+            border-radius: 50%;
+            animation: breathe 2s ease-in-out infinite;
+        }
+        .status-dot.normal {
+            background: #00E676;
+            box-shadow: 0 0 8px rgba(0,230,118,0.5);
+        }
+        .status-dot.normal::after { background: rgba(0,230,118,0.2); }
+        .status-dot.warning {
+            background: #FFB300;
+            box-shadow: 0 0 8px rgba(255,179,0,0.5);
+        }
+        .status-dot.warning::after { background: rgba(255,179,0,0.2); }
+        .status-dot.danger {
+            background: #FF3D57;
+            box-shadow: 0 0 8px rgba(255,61,87,0.5);
+            animation: blink 0.6s ease-in-out infinite;
+        }
+        .status-dot.danger::after { background: rgba(255,61,87,0.3); animation: blink 0.6s ease-in-out infinite; }
+        .status-dot.off {
+            background: #3A4A60;
+            box-shadow: none;
+        }
+        .status-dot.off::after { display: none; }
+
+        @keyframes breathe {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.6); opacity: 0; }
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+
+        /* ============ 大数字滴速显示 ============ */
+        .dpm-display {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 56px;
+            font-weight: 800;
+            line-height: 1;
+            letter-spacing: -2px;
+            transition: all 0.5s ease;
+            position: relative;
+        }
+        .dpm-display.normal {
+            color: #00D4FF;
+            text-shadow: 0 0 30px rgba(0,212,255,0.4), 0 0 60px rgba(0,212,255,0.15), 0 0 90px rgba(0,212,255,0.05);
+            animation: dpmPulse 3s ease-in-out infinite;
+        }
+        .dpm-display.warning {
+            color: #FFB300;
+            text-shadow: 0 0 30px rgba(255,179,0,0.4), 0 0 60px rgba(255,179,0,0.15);
+            animation: dpmPulse 1.5s ease-in-out infinite;
+        }
+        .dpm-display.danger {
+            color: #FF3D57;
+            text-shadow: 0 0 30px rgba(255,61,87,0.5), 0 0 60px rgba(255,61,87,0.2), 0 0 90px rgba(255,61,87,0.08);
+            animation: dpmPulse 0.8s ease-in-out infinite;
+        }
+        @keyframes dpmPulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.85; }
+        }
+        @keyframes logoFloat {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-6px); }
+        }
+
+        /* ============ 输液瓶液位动画 ============ */
+        .iv-bottle-container {
+            width: 80px;
+            height: 160px;
+            position: relative;
+            margin: 0 auto;
+        }
+        .iv-bottle {
+            width: 56px;
+            height: 100px;
+            border: 2px solid #2A3E5C;
+            border-radius: 4px 4px 12px 12px;
+            position: absolute;
+            top: 36px;
+            left: 12px;
+            overflow: hidden;
+            background: rgba(0,0,0,0.3);
+        }
+        .iv-bottle-neck {
+            width: 16px;
+            height: 18px;
+            border: 2px solid #2A3E5C;
+            border-bottom: none;
+            border-radius: 3px 3px 0 0;
+            position: absolute;
+            top: 20px;
+            left: 32px;
+            background: rgba(0,0,0,0.3);
+        }
+        .iv-liquid {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, rgba(0,212,255,0.5), rgba(0,212,255,0.8));
+            transition: height 0.8s ease;
+        }
+        .iv-liquid.low { background: linear-gradient(180deg, rgba(255,179,0,0.5), rgba(255,179,0,0.8)); }
+        .iv-liquid.critical { background: linear-gradient(180deg, rgba(255,61,87,0.5), rgba(255,61,87,0.8)); }
+        .iv-wave {
+            position: absolute;
+            top: -6px;
+            left: -10%;
+            width: 120%;
+            height: 12px;
+            background: transparent;
+        }
+        .iv-wave svg { width: 100%; height: 100%; }
+        .iv-tube {
+            width: 4px;
+            height: 24px;
+            background: linear-gradient(180deg, #2A3E5C, #1A2A48);
+            position: absolute;
+            bottom: 0;
+            left: 38px;
+            border-radius: 0 0 2px 2px;
+        }
+        .iv-drop-anim {
+            position: absolute;
+            bottom: -8px;
+            left: 35px;
+            width: 10px;
+            height: 10px;
+            background: rgba(0,212,255,0.8);
+            border-radius: 50% 50% 50% 0;
+            transform: rotate(-45deg);
+            opacity: 0;
+            animation: dropFall 1.5s ease-in infinite;
+        }
+        .iv-drop-anim.paused { animation-play-state: paused; opacity: 0; }
+        @keyframes dropFall {
+            0% { opacity: 0.8; transform: rotate(-45deg) translateY(0); }
+            100% { opacity: 0; transform: rotate(-45deg) translateY(20px); }
+        }
+
+        /* ============ 警报区闪烁边框 ============ */
+        .alarm-container {
+            border: 2px solid #FF3D57;
+            border-radius: 16px;
+            background: linear-gradient(135deg, rgba(255,61,87,0.12), rgba(255,61,87,0.04));
+            backdrop-filter: blur(10px);
+            padding: 20px;
+            animation: alarmFlash 0.8s ease-in-out infinite;
+            position: relative;
+            overflow: hidden;
+        }
+        .alarm-container::before {
+            content: '';
+            position: absolute;
+            inset: 0;
+            border-radius: 14px;
+            border: 1px solid rgba(255,61,87,0.3);
+            pointer-events: none;
+        }
+        .alarm-container::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle at 30% 50%, rgba(255,61,87,0.08) 0%, transparent 50%);
+            animation: alarmRotate 4s linear infinite;
+            pointer-events: none;
+        }
+        @keyframes alarmFlash {
+            0%, 100% { border-color: #FF3D57; box-shadow: 0 0 20px rgba(255,61,87,0.2), inset 0 0 20px rgba(255,61,87,0.03); }
+            50% { border-color: rgba(255,61,87,0.5); box-shadow: 0 0 50px rgba(255,61,87,0.4), inset 0 0 30px rgba(255,61,87,0.06); }
+        }
+        @keyframes alarmRotate {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        /* ============ 进度条液流动画 ============ */
+        .progress-track {
+            width: 100%;
+            height: 12px;
+            background: #0B1426;
+            border-radius: 6px;
+            overflow: hidden;
+            border: 1px solid #2A3E5C;
+        }
+        .progress-fill {
+            height: 100%;
+            border-radius: 6px;
+            transition: width 0.8s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-fill.normal { background: linear-gradient(90deg, #00A3CC, #00D4FF); }
+        .progress-fill.warning { background: linear-gradient(90deg, #E6A000, #FFB300); }
+        .progress-fill.danger { background: linear-gradient(90deg, #CC3344, #FF3D57); }
+        .progress-fill.complete { background: linear-gradient(90deg, #00B35E, #00E676); }
+        .progress-fill::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.15), transparent);
+            animation: flowShimmer 2s ease-in-out infinite;
+        }
+        @keyframes flowShimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+
+        /* ============ 波形图容器 ============ */
+        .waveform-container {
+            background: linear-gradient(180deg, #0D1A30, #0B1426);
+            border: 1px solid #2A3E5C;
+            border-radius: 14px;
+            padding: 16px 12px 8px;
+            position: relative;
+        }
+
+        /* ============ 底部导航栏 ============ */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(180deg, rgba(11,20,38,0.85), rgba(11,20,38,0.98));
+            border-top: 1px solid rgba(26,42,72,0.6);
+            z-index: 50;
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+        }
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px 0 8px;
+            cursor: pointer;
+            transition: all 0.3s;
+            color: #5A6E8C;
+            min-width: 80px;
+            position: relative;
+        }
+        .nav-item:hover { color: #8899B4; }
+        .nav-item.active {
+            color: #00D4FF;
+        }
+        .nav-item.active::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 40px;
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #00D4FF, transparent);
+            border-radius: 1px;
+            box-shadow: 0 0 8px rgba(0,212,255,0.4);
+        }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; transition: transform 0.3s; }
+        .nav-item.active i { transform: scale(1.15); text-shadow: 0 0 12px rgba(0,212,255,0.5); }
+        .nav-item span { font-size: 11px; }
+
+        /* ============ Toast ============ */
+        .toast-container {
+            position: fixed;
+            top: 16px;
+            left: 50%;
+            transform: translateX(-50%) translateY(-20px);
+            z-index: 100;
+            background: linear-gradient(135deg, rgba(21,34,56,0.95), rgba(17,29,53,0.95));
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(42,62,92,0.5);
+            border-radius: 12px;
+            padding: 12px 20px;
+            box-shadow: 0 8px 30px rgba(0,0,0,0.4), 0 0 20px rgba(0,212,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            max-width: calc(100vw - 32px);
+            opacity: 0;
+            pointer-events: none;
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+        .toast-container.show {
+            opacity: 1;
+            pointer-events: auto;
+            transform: translateX(-50%) translateY(0);
+        }
+
+        /* ============ 连接页背景动画 ============ */
+        .connect-bg {
+            position: relative;
+        }
+        .connect-bg::before {
+            content: '';
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(0,212,255,0.06), transparent 70%);
+            border-radius: 50%;
+            transform: translate(-50%, -50%);
+            pointer-events: none;
+            animation: connectPulse 4s ease-in-out infinite;
+        }
+        @keyframes connectPulse {
+            0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 0.6; }
+            50% { transform: translate(-50%, -50%) scale(1.2); opacity: 1; }
+        }
+
+        /* ============ 蓝牙图标动画 ============ */
+        .bt-icon-large {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            position: relative;
+        }
+        .bt-icon-large.connected {
+            background: linear-gradient(135deg, rgba(0,230,118,0.15), rgba(0,230,118,0.05));
+            border: 2px solid rgba(0,230,118,0.3);
+        }
+        .bt-icon-large.disconnected {
+            background: linear-gradient(135deg, rgba(0,212,255,0.1), rgba(0,212,255,0.03));
+            border: 2px solid rgba(0,212,255,0.2);
+        }
+        .bt-icon-large.connecting {
+            background: linear-gradient(135deg, rgba(255,179,0,0.15), rgba(255,179,0,0.05));
+            border: 2px solid rgba(255,179,0,0.3);
+        }
+
+        /* ============ 详细信息行 ============ */
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 0;
+            border-bottom: 1px solid rgba(42,62,92,0.4);
+        }
+        .info-row:last-child { border-bottom: none; }
+
+        /* ============ 预测时间标签 ============ */
+        .prediction-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0,212,255,0.1);
+            border: 1px solid rgba(0,212,255,0.2);
+            border-radius: 6px;
+            padding: 2px 8px;
+            font-size: 11px;
+            color: #00D4FF;
+        }
+
+        /* ============ Spinner ============ */
+        .spinner {
+            display: inline-block;
+            width: 48px;
+            height: 48px;
+            border: 3px solid rgba(0,212,255,0.2);
+            border-top-color: #00D4FF;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- 动态背景层 -->
+    <div class="bg-animated"></div>
+    <div class="bg-grid"></div>
+
+    <div class="max-w-lg mx-auto px-4 py-4 pb-24">
+
+        <!-- ======================== 连接页面 ======================== -->
+        <div id="connect-page" class="page connect-bg">
+            <div class="text-center pt-8 pb-6">
+                <div class="relative inline-block mb-4">
+                    <div class="absolute inset-0 rounded-full" style="background:radial-gradient(circle, rgba(0,212,255,0.2) 0%, transparent 70%);transform:scale(1.8);"></div>
+                    <div id="bt-icon" class="bt-icon-large disconnected relative" style="animation:logoFloat 3s ease-in-out infinite;">
+                        <i class="fa fa-tint" style="font-size:40px;color:#00D4FF;"></i>
+                    </div>
+                </div>
+                <h1 class="text-2xl font-bold mb-1" style="text-shadow:0 0 20px rgba(0,212,255,0.3);">智能滴液监测</h1>
+                <p class="text-sm" style="color:#5A6E8C;">瑞萨RA4M2 | 红外对射 | FPU加速滤波</p>
+                <div class="flex justify-center gap-2 mt-3">
+                    <span class="px-2 py-0.5 rounded text-xs" style="background:rgba(0,212,255,0.1);color:#00D4FF;border:1px solid rgba(0,212,255,0.2);">低功耗</span>
+                    <span class="px-2 py-0.5 rounded text-xs" style="background:rgba(0,230,118,0.1);color:#00E676;border:1px solid rgba(0,230,118,0.2);">闭环监控</span>
+                    <span class="px-2 py-0.5 rounded text-xs" style="background:rgba(255,179,0,0.1);color:#FFB300;border:1px solid rgba(255,179,0,0.2);">声光报警</span>
+                </div>
+            </div>
+
+            <!-- 连接状态 -->
+            <div class="card card-glow mb-5">
+                <div id="connection-status" class="text-center py-6">
+                    <div class="text-5xl mb-4" style="color:#5A6E8C;">
+                        <i class="fa fa-bluetooth-b"></i>
+                    </div>
+                    <h3 class="text-lg font-bold mb-2">未连接</h3>
+                    <p class="text-sm mb-6" style="color:#5A6E8C;">请点击下方按钮搜索并连接HC-05蓝牙模块</p>
+                    <button id="search-btn" onclick="searchDevices()" class="btn-primary w-full">
+                        <i class="fa fa-search mr-2"></i>搜索设备
+                    </button>
+                </div>
+            </div>
+
+            <!-- 设备列表 -->
+            <div id="device-list" class="hidden mb-5">
+                <h2 class="text-sm font-bold mb-3 flex items-center" style="color:#5A6E8C;">
+                    <i class="fa fa-list-ul mr-2" style="color:#00D4FF;"></i>
+                    可用设备
+                </h2>
+                <div id="devices-container" class="space-y-2 max-h-60 overflow-y-auto no-scrollbar"></div>
+            </div>
+
+            <!-- 连接中 -->
+            <div id="connecting" class="hidden">
+                <div class="text-center py-8">
+                    <div class="spinner mx-auto mb-4"></div>
+                    <h3 class="text-lg font-bold mb-2">正在连接...</h3>
+                    <p class="text-sm" style="color:#5A6E8C;">正在连接到HC-05蓝牙模块</p>
+                </div>
+            </div>
+
+            <!-- 使用说明 -->
+            <div class="card">
+                <h2 class="text-sm font-bold mb-3 flex items-center" style="color:#5A6E8C;">
+                    <i class="fa fa-info-circle mr-2" style="color:#00D4FF;"></i>
+                    使用说明
+                </h2>
+                <div class="text-sm space-y-2" style="color:#8899B4;">
+                    <p>1. 确保RA4M2滴液监测装置已通电并运行</p>
+                    <p>2. 点击"搜索设备"按钮，选择蓝牙设备连接</p>
+                    <p>3. 连接成功后进入监测页面</p>
+                    <p>4. 输入输液总容量，点击开始监测</p>
+                    <p style="color:#FFB300;">注意：滴速正常范围 <span class="instruction-dpm-range">10-120</span> DPM，超时 <span class="instruction-timeout">5</span> 秒无滴液触发警报</p>
+
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================== 监测页面 ======================== -->
+        <div id="monitor-page" class="page hidden">
+
+            <!-- 顶部状态栏 -->
+            <div class="flex justify-between items-center mb-5">
+                <div class="flex items-center gap-2">
+                    <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:linear-gradient(135deg, rgba(0,212,255,0.15), rgba(0,212,255,0.05));border:1px solid rgba(0,212,255,0.2);">
+                        <i class="fa fa-tint" style="color:#00D4FF;font-size:14px;"></i>
+                    </div>
+                    <div>
+                        <span class="font-bold text-base">滴液监测</span>
+                        <div id="connection-status-monitor" class="flex items-center gap-1 text-xs">
+                            <span id="monitor-status-dot" class="status-dot off"></span>
+                            <span id="monitor-status-text" style="color:#5A6E8C;">未连接</span>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="disconnectFromDevice()" class="btn-danger btn-sm">
+                    <i class="fa fa-times mr-1"></i>断开
+                </button>
+            </div>
+
+            <!-- 重连状态横幅 -->
+            <div id="reconnect-banner" class="hidden card mb-4" style="padding:10px 16px;border-color:rgba(255,179,0,0.3);background:linear-gradient(135deg,rgba(255,179,0,0.08),rgba(255,179,0,0.02));"></div>
+
+            <!-- ===== 核心数据展示区 ===== -->
+            <div class="card card-glow mb-4">
+                <div class="flex gap-4">
+                    <!-- 左侧: 滴速 + 状态 -->
+                    <div class="flex-1">
+                        <div class="text-xs mb-1" style="color:#5A6E8C;">当前滴速</div>
+                        <div class="flex items-end gap-2 mb-1">
+                            <span id="dpm-value" class="dpm-display normal" style="min-width:80px;display:inline-block;text-align:right;">--</span>
+                            <span class="text-xs pb-2" style="color:#5A6E8C;">DPM</span>
+                        </div>
+                        <div class="flex items-center gap-2 mt-3">
+                            <span id="status-indicator" class="status-dot normal"></span>
+                            <span id="status-text" class="text-sm font-medium" style="color:#00E676;">系统正常</span>
+                        </div>
+                        <p id="status-detail" class="text-xs mt-1" style="color:#5A6E8C;">滴液运行正常</p>
+                    </div>
+                    <!-- 右侧: 输液瓶液位 -->
+                    <div class="flex flex-col items-center">
+                        <div id="iv-bottle" class="iv-bottle-container">
+                            <div class="iv-bottle-neck"></div>
+                            <div class="iv-bottle">
+                                <div id="iv-liquid" class="iv-liquid" style="height:80%;">
+                                    <div class="iv-wave">
+                                        <svg viewBox="0 0 120 12" preserveAspectRatio="none">
+                                            <path id="wave-path" fill="rgba(0,212,255,0.4)" d="M0,6 Q15,0 30,6 T60,6 T90,6 T120,6 L120,12 L0,12 Z"/>
+                                        </svg>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="iv-tube"></div>
+                            <div id="iv-drop" class="iv-drop-anim paused"></div>
+                        </div>
+                        <span id="iv-percent" class="font-mono text-xs mt-1" style="color:#5A6E8C;">--%</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 二级数据卡片 -->
+            <div class="grid grid-cols-3 gap-3 mb-4">
+                <div class="data-card" style="border-color:rgba(0,230,118,0.2);">
+                    <div class="label" style="color:rgba(0,230,118,0.7);">剩余时间</div>
+                    <div id="time-remaining" class="value" style="color:#00E676;font-size:20px;">--:--</div>
+                    <div class="unit">时:分:秒</div>
+                </div>
+                <div class="data-card" style="border-color:rgba(0,212,255,0.2);">
+                    <div class="label" style="color:rgba(0,212,255,0.7);">已滴入</div>
+                    <div id="infused-ml" class="value" style="color:#00D4FF;">0.0</div>
+                    <div class="unit">毫升</div>
+                </div>
+                <div class="data-card" style="border-color:rgba(255,179,0,0.2);">
+                    <div class="label" style="color:rgba(255,179,0,0.7);">剩余量</div>
+                    <div id="remaining-ml" class="value" style="color:#FFB300;">--</div>
+                    <div class="unit">毫升</div>
+                </div>
+            </div>
+
+            <!-- ===== 波形图 ===== -->
+            <div class="waveform-container mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs font-medium" style="color:#5A6E8C;">滴速波形 (60s)</span>
+                    <div class="flex items-center gap-3 text-xs" style="color:#5A6E8C;">
+                        <span><span style="color:#FF3D57;">---</span> 10 DPM</span>
+                        <span><span style="color:#FFB300;">---</span> 120 DPM</span>
+                    </div>
+                </div>
+                <canvas id="waveform-canvas" width="400" height="140" style="width:100%;height:140px;"></canvas>
+            </div>
+
+            <!-- ===== 进度条 ===== -->
+            <div class="card mb-4">
+                <div class="flex justify-between items-center mb-2">
+                    <span class="text-xs" style="color:#5A6E8C;">输液进度</span>
+                    <div class="flex items-center gap-2">
+                        <span id="prediction-badge" class="prediction-badge hidden">
+                            <i class="fa fa-line-chart" style="font-size:10px;"></i>
+                            <span id="prediction-text">预测: --</span>
+                        </span>
+                        <span id="progress-percent" class="font-mono text-xs font-bold">0%</span>
+                    </div>
+                </div>
+                <div class="progress-track">
+                    <div id="progress-bar" class="progress-fill normal" style="width:0%;"></div>
+                </div>
+                <div class="flex justify-between mt-1">
+                    <span class="text-xs" style="color:#3A4A60;">0%</span>
+                    <span class="text-xs" style="color:#FFB300;">90% 预警</span>
+                    <span class="text-xs" style="color:#FF3D57;">98% 警告</span>
+                </div>
+            </div>
+
+            <!-- ===== 警报区 ===== -->
+            <div id="alarm-area" class="hidden mb-4">
+                <div class="alarm-container">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center gap-2">
+                            <i class="fa fa-exclamation-triangle text-xl" style="color:#FF3D57;animation:blink 0.6s ease-in-out infinite;"></i>
+                            <h3 id="alarm-title" class="text-base font-bold" style="color:#FF3D57;">警报</h3>
+                        </div>
+                        <button onclick="acknowledgeAlarm()" class="btn-danger btn-sm">
+                            <i class="fa fa-bell-slash mr-1"></i>确认
+                        </button>
+                    </div>
+                    <p id="alarm-message" class="text-sm" style="color:#8899B4;">滴液已停止，请检查输液管</p>
+                </div>
+            </div>
+
+            <!-- ===== 输液设置 ===== -->
+            <div class="card mb-4" style="border-color:rgba(0,212,255,0.15);">
+                <div class="flex items-center gap-2 mb-4 pb-3" style="border-bottom:1px solid rgba(42,62,92,0.3);">
+                    <div class="w-6 h-6 rounded flex items-center justify-center" style="background:rgba(0,212,255,0.1);">
+                        <i class="fa fa-sliders" style="color:#00D4FF;font-size:11px;"></i>
+                    </div>
+                    <h3 class="text-sm font-bold" style="color:#8899B4;">输液参数</h3>
+                    <span class="ml-auto text-xs px-2 py-0.5 rounded" style="background:rgba(0,230,118,0.08);color:#00E676;">默认 500ml / 15滴</span>
+                </div>
+                <div class="grid grid-cols-2 gap-3 mb-3">
+                    <div>
+                        <label class="text-xs mb-1 block" style="color:#5A6E8C;">总容量 (ml)</label>
+                        <input type="number" id="total-volume" class="input-field" value="500" min="1">
+                    </div>
+                    <div>
+                        <label class="text-xs mb-1 block" style="color:#5A6E8C;">每毫升滴数</label>
+                        <input type="number" id="drops-per-ml" class="input-field" value="15" min="1" max="60">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <button onclick="startMonitoring()" id="start-btn" class="btn-success">
+                        <i class="fa fa-play mr-1"></i>开始监测
+                    </button>
+                    <button onclick="resetMonitoring()" id="reset-btn" class="btn-danger" disabled style="opacity:0.4;">
+                        <i class="fa fa-refresh mr-1"></i>重置
+                    </button>
+                </div>
+            </div>
+
+            <!-- ===== 详细信息 ===== -->
+            <div class="card">
+                <h3 class="text-sm font-bold mb-3 flex items-center" style="color:#5A6E8C;">
+                    <i class="fa fa-info-circle mr-2" style="color:#00D4FF;"></i>
+                    详细信息
+                </h3>
+                <div>
+                    <div class="info-row">
+                        <span class="text-sm" style="color:#5A6E8C;">上次滴液</span>
+                        <span id="last-drop-time" class="text-sm font-mono">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="text-sm" style="color:#5A6E8C;">开始时间</span>
+                        <span id="start-time" class="text-sm font-mono">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="text-sm" style="color:#5A6E8C;">预计结束</span>
+                        <span id="end-time" class="text-sm font-mono">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="text-sm" style="color:#5A6E8C;">滤波后滴速</span>
+                        <span id="filtered-dpm" class="text-sm font-mono" style="color:#00D4FF;">--</span>
+                    </div>
+                    <div class="info-row">
+                        <span class="text-sm" style="color:#5A6E8C;">累计滴数</span>
+                        <span id="total-drops-display" class="text-sm font-mono">--</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ======================== 底部导航栏 ======================== -->
+    <nav class="bottom-nav">
+        <div class="flex justify-around max-w-lg mx-auto">
+            <div class="nav-item active" onclick="switchPage('connect-page')">
+                <i class="fa fa-bluetooth-b"></i>
+                <span>连接</span>
+            </div>
+            <div class="nav-item" onclick="switchPage('monitor-page')">
+                <i class="fa fa-tint"></i>
+                <span>监测</span>
+            </div>
+        </div>
+    </nav>
+
+    <!-- ======================== Toast ======================== -->
+    <div id="toast" class="toast-container">
+        <i id="toast-icon" class="fa fa-info-circle" style="color:#00D4FF;"></i>
+        <span id="toast-message" class="text-sm">消息内容</span>
+    </div>
+
+    <script>
+    // ================================================================
+    //  全局变量
+    // ================================================================
+    let bluetoothManager = null;
+    let dataParser = null;
+    let currentPage = 'connect-page';
+    let isMonitoring = false;
+    let alarmActive = false;
+    let progressWarningActive = false;
+    let progressDangerActive = false;
+
+    const PROGRESS_WARNING_THRESHOLD = 90;
+    const PROGRESS_DANGER_THRESHOLD = 98;
+
+    // ================================================================
+    //  滤波器参数 (与RA4M2匹配)
+    // ================================================================
+    const IIR_ALPHA = 0.1;            // IIR滤波系数
+    const MEDIAN_WINDOW = 5;           // 中值滤波窗口
+    const WAVEFORM_BUFFER_SEC = 60;    // 波形缓冲区秒数
+    // ================================================================
+    //  报警阈值（默认值，可通过HTML设置下发到单片机，断开恢复默认）
+    // ================================================================
+    const DEFAULT_DPM_MIN = 10;
+    const DEFAULT_DPM_MAX = 120;
+    const DEFAULT_NO_DROP_TIMEOUT = 5000;
+    const DEFAULT_RESET_TIMEOUT = 10000;
+
+    let DPM_MIN = DEFAULT_DPM_MIN;               // 滴速正常下限
+    let DPM_MAX = DEFAULT_DPM_MAX;               // 滴速正常上限
+    let NO_DROP_TIMEOUT = DEFAULT_NO_DROP_TIMEOUT; // 滴液停止报警阈值(ms)
+    let RESET_TIMEOUT = DEFAULT_RESET_TIMEOUT;    // 超时清零(ms)
+    const MIN_DROP_INTERVAL = 150;     // 最小滴间隔(ms)
+    const MAX_DROP_INTERVAL = 60000;   // 最大滴间隔(ms)
+    const INITIAL_DROP_SKIP = 10;      // 初始N滴不计报警
+
+    // ================================================================
+    //  信号处理模块 (双重数据源: 逐滴间隔 + 定时状态)
+    // ================================================================
+    const signalProcessor = {
+        iirState: 0,                    // IIR滤波器状态 y[n-1]
+        iirInitialized: false,
+        intervalMedianBuffer: [],       // 滴间隔中值滤波窗口(ms)
+        intervalIIRState: 0,           // 基于间隔的IIR状态
+        intervalIIRInit: false,
+        medianBuffer: [],               // 滴速DPM中值滤波窗口
+        waveformBuffer: [],             // [{time:ms, dpm:number, filteredDpm:number}]
+        predictionDpm: 0,               // 趋势预测滴速
+        predictionSamples: [],          // 最近趋势样本
+        lastDropTimestamp: 0,          // 上次滴液时间戳(Date.now())
+        dropCountSinceLastStatus: 0,     // 两次状态之间的滴液计数
+
+        // ========== 基于间隔的滴速计算 (逐滴数据使用) ==========
+        // 将毫秒间隔转换为DPM，与RA4M2完全一致
+        intervalToDpm(intervalMs) {
+            if (intervalMs < MIN_DROP_INTERVAL || intervalMs > MAX_DROP_INTERVAL) return null;
+            return 60000.0 / intervalMs;
+        },
+
+        // 基于间隔的IIR滤波 (与RA4M2 FPU-IIR完全一致)
+        applyIntervalIIR(intervalMs) {
+            // 有效性检查
+            if (intervalMs < MIN_DROP_INTERVAL || intervalMs > MAX_DROP_INTERVAL) return null;
+
+            // 中值滤波(先对间隔做中值)
+            this.intervalMedianBuffer.push(intervalMs);
+            if (this.intervalMedianBuffer.length > MEDIAN_WINDOW) {
+                this.intervalMedianBuffer.shift();
+            }
+            const sorted = [...this.intervalMedianBuffer].sort((a, b) => a - b);
+            const medianInterval = sorted[Math.floor(sorted.length / 2)];
+
+            if (medianInterval < MIN_DROP_INTERVAL) return null;
+
+            // 中值间隔转原始DPM
+            const rawDpm = 60000.0 / medianInterval;
+
+            // IIR滤波: y[n] = y[n-1] + 0.1 * (x[n] - y[n-1])
+            if (!this.intervalIIRInit) {
+                this.intervalIIRState = rawDpm;
+                this.intervalIIRInit = true;
+                return rawDpm;
+            }
+            this.intervalIIRState = this.intervalIIRState + IIR_ALPHA * (rawDpm - this.intervalIIRState);
+            return this.intervalIIRState;
+        },
+
+        // ========== 处理逐滴数据 D:xxx ==========
+        // 收到单片机的逐滴间隔(ms)，软件端计算滴速+滤波
+        processDropInterval(intervalMs) {
+            const now = Date.now();
+            this.lastDropTimestamp = now;
+            this.dropCountSinceLastStatus++;
+
+            // 基于间隔的IIR滤波 (与RA4M2相同算法)
+            const filteredDpm = this.applyIntervalIIR(intervalMs);
+            if (filteredDpm === null) return;
+
+            const rawDpm = 60000.0 / intervalMs;
+            const finalDpm = Math.round(filteredDpm);
+
+            // 更新波形
+            this.addToWaveform(rawDpm, filteredDpm);
+
+            // 更新趋势预测
+            this.updatePrediction(filteredDpm);
+
+            // 累计滴数 (每收到一滴，累计+1)
+            infusionParams.cumulativeDrops++;
+
+            // 更新滴速参数
+            infusionParams.currentDpm = finalDpm;
+            infusionParams.filteredDpm = filteredDpm;
+            infusionParams.lastDpmUpdateTime = now;
+            infusionParams.lastDropTime = now;
+
+            // 速度异常判断 (与RA4M2一致: 10-120 DPM)
+            dataParser.data.speed = finalDpm;
+            dataParser.data.error = (finalDpm < DPM_MIN || finalDpm > DPM_MAX) ? 1 : 0;
+            dataParser.data.lastUpdate = now;
+
+            updateMonitorUI();
+            checkAlarms();
+        },
+
+        // 客户端IIR滤波: y[n] = y[n-1] + alpha * (x[n] - y[n-1]) (状态数据使用)
+        applyIIR(rawDpm) {
+            if (!this.iirInitialized) {
+                this.iirState = rawDpm;
+                this.iirInitialized = true;
+                return rawDpm;
+            }
+            this.iirState = this.iirState + IIR_ALPHA * (rawDpm - this.iirState);
+            return this.iirState;
+        },
+
+        // 中值滤波 + 移动平均 (状态数据使用)
+        applyMedianAndAverage(value) {
+            this.medianBuffer.push(value);
+            if (this.medianBuffer.length > MEDIAN_WINDOW) {
+                this.medianBuffer.shift();
+            }
+            const sorted = [...this.medianBuffer].sort((a, b) => a - b);
+            const median = sorted[Math.floor(sorted.length / 2)];
+            const avg = this.medianBuffer.reduce((s, v) => s + v, 0) / this.medianBuffer.length;
+            return (median + avg) / 2;
+        },
+
+        // 处理定时状态数据（仅用于报警状态和校验，不覆盖逐滴计算的滴速）
+        processStatusDpm(newDpm) {
+            // 状态数据的滴速仅作为校准参考，不更新currentDpm（避免乱跳）
+            // 逐滴数据(D:)已经提供精确滴速，此处只做辅助
+        },
+
+        // 添加到波形缓冲区
+        addToWaveform(rawDpm, filteredDpm) {
+            const now = Date.now();
+            this.waveformBuffer.push({ time: now, dpm: rawDpm, filteredDpm: filteredDpm });
+            const cutoff = now - WAVEFORM_BUFFER_SEC * 1000;
+            while (this.waveformBuffer.length > 0 && this.waveformBuffer[0].time < cutoff) {
+                this.waveformBuffer.shift();
+            }
+        },
+
+        // 趋势预测算法 (线性回归)
+        updatePrediction(currentDpm) {
+            this.predictionSamples.push({ time: Date.now(), dpm: currentDpm });
+            if (this.predictionSamples.length > 20) {
+                this.predictionSamples.shift();
+            }
+            if (this.predictionSamples.length < 3) {
+                this.predictionDpm = currentDpm;
+                return currentDpm;
+            }
+            const n = this.predictionSamples.length;
+            let sumX = 0, sumY = 0, sumXY = 0, sumX2 = 0;
+            const baseTime = this.predictionSamples[0].time;
+            for (const s of this.predictionSamples) {
+                const x = (s.time - baseTime) / 1000;
+                const y = s.dpm;
+                sumX += x; sumY += y; sumXY += x * y; sumX2 += x * x;
+            }
+            const slope = (n * sumXY - sumX * sumY) / (n * sumX2 - sumX * sumX + 1e-9);
+            const futureDpm = currentDpm + slope * 30;
+            this.predictionDpm = Math.max(1, Math.round(futureDpm * 10) / 10);
+            return this.predictionDpm;
+        },
+
+        predictCompletionTime(remainingMl, dropsPerMl) {
+            if (this.predictionDpm <= 0 || remainingMl <= 0) return null;
+            const remainingDrops = remainingMl * dropsPerMl;
+            const remainingSec = (remainingDrops / this.predictionDpm) * 60;
+            const endTime = new Date(Date.now() + remainingSec * 1000);
+            return endTime;
+        },
+
+        reset() {
+            this.iirState = 0;
+            this.iirInitialized = false;
+            this.intervalMedianBuffer = [];
+            this.intervalIIRState = 0;
+            this.intervalIIRInit = false;
+            this.medianBuffer = [];
+            this.waveformBuffer = [];
+            this.predictionSamples = [];
+            this.predictionDpm = 0;
+            this.lastDropTimestamp = 0;
+            this.dropCountSinceLastStatus = 0;
+        }
+    };
+
+    // ================================================================
+    //  输液参数
+    // ================================================================
+    let infusionParams = {
+        totalVolume: 500,
+        dropsPerMl: 15,
+        totalDrops: 0,
+        cumulativeDrops: 0,
+        startTime: null,
+        currentDpm: 0,
+        filteredDpm: 0,          // 滤波后滴速
+        lastDpmUpdateTime: null,
+        lastDropTime: 0
+    };
+
+    // ================================================================
+    //  配置
+    // ================================================================
+    let config = {
+        bluetooth: {
+            serviceUuid: '0000ffe0-0000-1000-8000-00805f9b34fb',
+            characteristicUuid: '0000ffe1-0000-1000-8000-00805f9b34fb'
+        }
+    };
+
+    // ================================================================
+    //  初始化
+    // ================================================================
+    document.addEventListener('DOMContentLoaded', function() {
+        console.log('智能滴液监测系统已启动');
+        initializeManagers();
+        checkBluetoothSupport();
+        loadSettings();
+        updateInstructionText();
+        initWaveformCanvas();
+        startWaveformAnimation();
+    });
+
+    function initializeManagers() {
+        bluetoothManager = new BluetoothManager(config.bluetooth);
+        dataParser = new DataParser();
+    }
+
+    const isChrome = /Chrome|Chromium/i.test(navigator.userAgent) && !/Edge|OPR/i.test(navigator.userAgent);
+
+    // ================================================================
+    //  蓝牙管理器 (增强版: 自动重连 + 健康检测 + file://保活)
+    // ================================================================
+    class BluetoothManager {
+        constructor(config) {
+            this.config = config;
+            this.device = null;
+            this.server = null;
+            this.characteristic = null;
+            this.isConnected = false;
+            this.receiveBuffer = '';
+            this.keepAliveInterval = null;
+            this.healthCheckInterval = null;
+            this.lastDataTime = 0;
+            this.autoReconnectTimer = null;
+            this.autoReconnectCount = 0;
+            this.maxAutoReconnect = 5;
+            this.manualDisconnect = false;
+            this.lastDisconnectTime = 0;
+        }
+
+        forceReset() {
+            try {
+                this.stopKeepAlive();
+                this.stopHealthCheck();
+                this.stopAutoReconnect();
+                if (this.device && this.device.gatt) {
+                    this.device.gatt.disconnect().catch(() => {});
+                }
+                this.device = null;
+                this.server = null;
+                this.characteristic = null;
+                this.isConnected = false;
+                this.receiveBuffer = '';
+                this.lastDataTime = 0;
+            } catch (e) {
+                console.warn('重置状态异常:', e);
+            }
+        }
+
+        startKeepAlive() {
+            this.stopKeepAlive();
+            this.lastDataTime = Date.now();
+            this.keepAliveInterval = setInterval(() => {
+                if (this.isConnected && this.characteristic) {
+                    this.characteristic.writeValue(new TextEncoder().encode(' ')).catch(() => {});
+                }
+            }, 1000);
+        }
+
+        stopKeepAlive() {
+            if (this.keepAliveInterval) {
+                clearInterval(this.keepAliveInterval);
+                this.keepAliveInterval = null;
+            }
+        }
+
+        startHealthCheck() {
+            this.stopHealthCheck();
+            this.healthCheckInterval = setInterval(() => {
+                if (!this.isConnected) return;
+                const elapsed = Date.now() - this.lastDataTime;
+                if (elapsed > 5000) {
+                    console.warn(`健康检测: ${elapsed}ms未收到数据，尝试重连...`);
+                    this.handleUnexpectedDisconnect();
+                }
+            }, 3000);
+        }
+
+        stopHealthCheck() {
+            if (this.healthCheckInterval) {
+                clearInterval(this.healthCheckInterval);
+                this.healthCheckInterval = null;
+            }
+        }
+
+        handleUnexpectedDisconnect() {
+            this.isConnected = false;
+            this.stopKeepAlive();
+            this.stopHealthCheck();
+            this.server = null;
+            this.characteristic = null;
+            this.receiveBuffer = '';
+            restoreDefaultThresholds();
+            updateConnectionUI();
+            showToast('连接已断开，正在尝试自动重连...', 'warning');
+
+            if (!this.manualDisconnect && this.autoReconnectCount < this.maxAutoReconnect && this.device) {
+                this.scheduleAutoReconnect();
+            }
+        }
+
+        scheduleAutoReconnect() {
+            this.stopAutoReconnect();
+            const delay = Math.min(1000 * Math.pow(2, this.autoReconnectCount), 16000);
+            console.log(`自动重连 #${this.autoReconnectCount + 1}，${delay}ms 后尝试...`);
+            updateReconnectUI(true, Math.round(delay / 1000), this.autoReconnectCount + 1);
+
+            this.autoReconnectTimer = setTimeout(async () => {
+                this.autoReconnectCount++;
+                try {
+                    console.log(`开始自动重连 #${this.autoReconnectCount}...`);
+                    if (this.device && this.device.gatt) {
+                        const server = await this.device.gatt.connect();
+                        this.server = server;
+                        const service = await server.getPrimaryService(this.config.serviceUuid);
+                        const characteristic = await service.getCharacteristic(this.config.characteristicUuid);
+                        this.characteristic = characteristic;
+                        await characteristic.startNotifications();
+                        characteristic.addEventListener('characteristicvaluechanged', this.handleDataReceived.bind(this));
+                        this.isConnected = true;
+                        this.autoReconnectCount = 0;
+                        this.lastDataTime = Date.now();
+                        this.startKeepAlive();
+                        this.startHealthCheck();
+                        updateReconnectUI(false);
+                        updateConnectionUI();
+                        showToast('自动重连成功', 'success');
+                        sendCurrentThresholdToDevice();
+                    }
+                } catch (error) {
+                    console.warn(`自动重连 #${this.autoReconnectCount} 失败:`, error.name);
+                    if (this.autoReconnectCount < this.maxAutoReconnect) {
+                        this.scheduleAutoReconnect();
+                    } else {
+                        showToast('自动重连失败，请手动重新连接', 'error');
+                        updateReconnectUI(false);
+                    }
+                }
+            }, delay);
+        }
+
+        stopAutoReconnect() {
+            if (this.autoReconnectTimer) {
+                clearTimeout(this.autoReconnectTimer);
+                this.autoReconnectTimer = null;
+            }
+        }
+
+        async searchDevices() {
+            try {
+                this.forceReset();
+                this.manualDisconnect = false;
+                this.autoReconnectCount = 0;
+                if (isChrome) {
+                    await new Promise(resolve => setTimeout(resolve, 300));
+                }
+                const options = {
+                    acceptAllDevices: true,
+                    optionalServices: [this.config.serviceUuid]
+                };
+                const device = await navigator.bluetooth.requestDevice(options);
+                if (device) {
+                    this.device = device;
+                    device.addEventListener('gattserverdisconnected', () => {
+                        if (!this.manualDisconnect) {
+                            this.handleUnexpectedDisconnect();
+                        } else {
+                            this.isConnected = false;
+                            this.forceReset();
+                            updateConnectionUI();
+                        }
+                    });
+                    return [device];
+                }
+                return [];
+            } catch (error) {
+                if (error.name === 'NotFoundError') {
+                    showToast('设备选择已取消', 'info');
+                } else if (error.name === 'SecurityError') {
+                    showToast('请使用HTTPS或localhost运行', 'error');
+                } else {
+                    showToast('搜索失败: ' + error.message, 'warning');
+                }
+                throw error;
+            }
+        }
+
+        async connectToDevice() {
+            try {
+                if (!this.device) throw new Error('未选择设备');
+                const server = await this.device.gatt.connect();
+                this.server = server;
+                const service = await server.getPrimaryService(this.config.serviceUuid);
+                const characteristic = await service.getCharacteristic(this.config.characteristicUuid);
+                this.characteristic = characteristic;
+                await characteristic.startNotifications();
+                characteristic.addEventListener('characteristicvaluechanged', this.handleDataReceived.bind(this));
+                this.isConnected = true;
+                this.autoReconnectCount = 0;
+                this.lastDataTime = Date.now();
+                this.startKeepAlive();
+                this.startHealthCheck();
+                return true;
+            } catch (error) {
+                this.isConnected = false;
+                throw error;
+            }
+        }
+
+        async disconnect() {
+            try {
+                this.manualDisconnect = true;
+                this.stopAutoReconnect();
+                this.stopKeepAlive();
+                this.stopHealthCheck();
+                if (this.characteristic) {
+                    this.characteristic.removeEventListener('characteristicvaluechanged', this.handleDataReceived);
+                    await this.characteristic.stopNotifications().catch(() => {});
+                }
+                if (this.device && this.device.gatt.connected) {
+                    await this.device.gatt.disconnect();
+                }
+                this.lastDisconnectTime = Date.now();
+                this.forceReset();
+                return true;
+            } catch (error) {
+                this.forceReset();
+                throw error;
+            }
+        }
+
+        handleDataReceived(event) {
+            try {
+                this.lastDataTime = Date.now();
+                const value = event.target.value;
+                const text = new TextDecoder().decode(value);
+                this.receiveBuffer += text;
+                const lines = this.receiveBuffer.split(/\r?\n/);
+                this.receiveBuffer = lines.pop();
+                lines.forEach(line => {
+                    const cleanLine = line.replace(/\r/g, '').trim();
+                    if (cleanLine) {
+                        dataParser.parseLine(cleanLine);
+                    }
+                });
+            } catch (error) {
+                console.warn('处理数据时遇到问题');
+            }
+        }
+    }
+
+    // ================================================================
+    //  数据解析器 (RA4M2双格式: D:间隔 + S:状态)
+    // ================================================================
+    class DataParser {
+        constructor() {
+            this.data = {
+                status: 'NORMAL',
+                speed: 0,
+                error: 0,
+                lastUpdate: 0
+            };
+        }
+
+        parseLine(line) {
+            try {
+                // ===== 格式1: 逐滴数据 D:xxxx =====
+                // 单片机每检测到一滴立即发送: "D:1234\r\n"
+                // 1234 = 两滴之间的毫秒间隔
+                const dropMatch = line.match(/^D:(\d+)$/);
+                if (dropMatch) {
+                    const interval = parseInt(dropMatch[1]);
+                    // 交给信号处理模块：基于间隔计算滴速+滤波
+                    signalProcessor.processDropInterval(interval);
+                    return;
+                }
+
+                // ===== 格式3: 定时状态上报 S:STATUS,Speed:XX DPM,Err:X,Cnt:X =====
+                // 单片机每200ms发送一次汇总状态
+                const statusMatch = line.match(/^[Ss]:(\w+)/) || line.match(/Status:(\w+)/);
+                const speedMatch = line.match(/Speed:(\d+|--)\s*DPM/);
+                const errMatch = line.match(/Err:(\d+)/);
+                const cntMatch = line.match(/Cnt:(\d+)/);
+                const dropsMatch = line.match(/Drops:(\d+)/);
+
+                if (statusMatch) {
+                    this.data.status = statusMatch[1];
+                }
+
+                if (speedMatch) {
+                    const speedValue = speedMatch[1];
+                    const newDpm = speedValue === '--' ? 0 : parseInt(speedValue);
+                    const now = Date.now();
+
+                    // 积分计算: 先累加上一段时间的滴数
+                    if (infusionParams.lastDpmUpdateTime !== null && infusionParams.currentDpm > 0) {
+                        const elapsedMs = now - infusionParams.lastDpmUpdateTime;
+                        const elapsedMinutes = elapsedMs / 60000;
+                        const incrementalDrops = Math.round(infusionParams.currentDpm * elapsedMinutes);
+                        infusionParams.cumulativeDrops += incrementalDrops;
+                    }
+
+                    this.data.speed = newDpm;
+                    infusionParams.currentDpm = newDpm;
+                    infusionParams.lastDpmUpdateTime = now;
+
+                    // 客户端二次滤波 (状态数据的补充平滑)
+                    signalProcessor.processStatusDpm(newDpm);
+                }
+
+                if (errMatch) {
+                    this.data.error = parseInt(errMatch[1]);
+                }
+
+                // Cnt: 两次状态上报间的滴液计数 (可用于校验)
+                if (cntMatch) {
+                    const deviceDropCount = parseInt(cntMatch[1]);
+                    // 仅用于日志校验，不强制覆盖软件端计算
+                    if (deviceDropCount !== signalProcessor.dropCountSinceLastStatus) {
+                        console.log(`滴数校验: 设备=${deviceDropCount}, 软件=${signalProcessor.dropCountSinceLastStatus}`);
+                    }
+                    signalProcessor.dropCountSinceLastStatus = 0;
+                }
+
+                if (dropsMatch) {
+                    const hwDrops = parseInt(dropsMatch[1]);
+                    infusionParams.hardwareDrops = hwDrops;
+                }
+
+                this.data.lastUpdate = Date.now();
+                infusionParams.lastDropTime = this.data.lastUpdate;
+
+                updateMonitorUI();
+                checkAlarms();
+            } catch (error) {
+                console.error('解析数据失败:', error);
+            }
+        }
+    }
+
+    // ================================================================
+    //  波形图 (Canvas)
+    // ================================================================
+    let waveformCtx = null;
+    let waveformAnimFrame = null;
+
+    function initWaveformCanvas() {
+        const canvas = document.getElementById('waveform-canvas');
+        if (!canvas) return;
+        const dpr = window.devicePixelRatio || 1;
+        const rect = canvas.getBoundingClientRect();
+        canvas.width = rect.width * dpr;
+        canvas.height = rect.height * dpr;
+        waveformCtx = canvas.getContext('2d');
+        waveformCtx.scale(dpr, dpr);
+    }
+
+    function startWaveformAnimation() {
+        function drawFrame() {
+            drawWaveform();
+            waveformAnimFrame = requestAnimationFrame(drawFrame);
+        }
+        drawFrame();
+    }
+
+    function drawWaveform() {
+        if (!waveformCtx) return;
+        const canvas = waveformCtx.canvas;
+        const dpr = window.devicePixelRatio || 1;
+        const W = canvas.width / dpr;
+        const H = canvas.height / dpr;
+        const ctx = waveformCtx;
+        const buffer = signalProcessor.waveformBuffer;
+
+        ctx.clearRect(0, 0, W, H);
+
+        const padding = { top: 5, bottom: 5, left: 0, right: 0 };
+        const chartW = W - padding.left - padding.right;
+        const chartH = H - padding.top - padding.bottom;
+
+        // Y轴范围
+        const yMin = 0;
+        const yMax = 160;
+
+        // 网格线
+        ctx.strokeStyle = 'rgba(42,62,92,0.5)';
+        ctx.lineWidth = 0.5;
+        for (let v = 0; v <= yMax; v += 20) {
+            const y = padding.top + chartH - (v / yMax) * chartH;
+            ctx.beginPath();
+            ctx.moveTo(padding.left, y);
+            ctx.lineTo(W - padding.right, y);
+            ctx.stroke();
+        }
+
+        // 阈值线: 10 DPM
+        const y10 = padding.top + chartH - (DPM_MIN / yMax) * chartH;
+        ctx.strokeStyle = 'rgba(255,61,87,0.4)';
+        ctx.lineWidth = 1;
+        ctx.setLineDash([4, 4]);
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y10);
+        ctx.lineTo(W - padding.right, y10);
+        ctx.stroke();
+
+        // 阈值线: 120 DPM
+        const y120 = padding.top + chartH - (DPM_MAX / yMax) * chartH;
+        ctx.strokeStyle = 'rgba(255,179,0,0.4)';
+        ctx.beginPath();
+        ctx.moveTo(padding.left, y120);
+        ctx.lineTo(W - padding.right, y120);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        if (buffer.length < 2) {
+            // 无数据时显示占位文字
+            ctx.fillStyle = 'rgba(90,110,140,0.5)';
+            ctx.font = '12px "Noto Sans SC"';
+            ctx.textAlign = 'center';
+            ctx.fillText('等待数据...', W / 2, H / 2);
+            return;
+        }
+
+        const now = Date.now();
+        const timeStart = now - WAVEFORM_BUFFER_SEC * 1000;
+
+        // 绘制原始数据区域填充
+        ctx.beginPath();
+        let firstX = null;
+        for (let i = 0; i < buffer.length; i++) {
+            const x = padding.left + ((buffer[i].time - timeStart) / (WAVEFORM_BUFFER_SEC * 1000)) * chartW;
+            const y = padding.top + chartH - (buffer[i].filteredDpm / yMax) * chartH;
+            if (i === 0) {
+                ctx.moveTo(x, y);
+                firstX = x;
+            } else {
+                ctx.lineTo(x, y);
+            }
+        }
+        // 填充区域
+        const lastPt = buffer[buffer.length - 1];
+        const lastX = padding.left + ((lastPt.time - timeStart) / (WAVEFORM_BUFFER_SEC * 1000)) * chartW;
+        ctx.lineTo(lastX, padding.top + chartH);
+        ctx.lineTo(firstX || lastX, padding.top + chartH);
+        ctx.closePath();
+        const gradient = ctx.createLinearGradient(0, padding.top, 0, padding.top + chartH);
+        gradient.addColorStop(0, 'rgba(0,212,255,0.15)');
+        gradient.addColorStop(1, 'rgba(0,212,255,0.01)');
+        ctx.fillStyle = gradient;
+        ctx.fill();
+
+        // 绘制滤波后折线
+        ctx.beginPath();
+        ctx.strokeStyle = '#00D4FF';
+        ctx.lineWidth = 2;
+        ctx.lineJoin = 'round';
+        for (let i = 0; i < buffer.length; i++) {
+            const x = padding.left + ((buffer[i].time - timeStart) / (WAVEFORM_BUFFER_SEC * 1000)) * chartW;
+            const y = padding.top + chartH - (buffer[i].filteredDpm / yMax) * chartH;
+            if (i === 0) ctx.moveTo(x, y);
+            else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+
+        // 绘制原始数据点(淡色)
+        ctx.fillStyle = 'rgba(0,212,255,0.2)';
+        for (let i = 0; i < buffer.length; i++) {
+            const x = padding.left + ((buffer[i].time - timeStart) / (WAVEFORM_BUFFER_SEC * 1000)) * chartW;
+            const y = padding.top + chartH - (buffer[i].dpm / yMax) * chartH;
+            ctx.beginPath();
+            ctx.arc(x, y, 1.5, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // 当前点高亮
+        if (buffer.length > 0) {
+            const last = buffer[buffer.length - 1];
+            const cx = padding.left + ((last.time - timeStart) / (WAVEFORM_BUFFER_SEC * 1000)) * chartW;
+            const cy = padding.top + chartH - (last.filteredDpm / yMax) * chartH;
+            // 外圈光晕
+            ctx.beginPath();
+            ctx.arc(cx, cy, 6, 0, Math.PI * 2);
+            ctx.fillStyle = 'rgba(0,212,255,0.2)';
+            ctx.fill();
+            // 内圈
+            ctx.beginPath();
+            ctx.arc(cx, cy, 3, 0, Math.PI * 2);
+            ctx.fillStyle = '#00D4FF';
+            ctx.fill();
+        }
+    }
+
+    // ================================================================
+    //  水波动画
+    // ================================================================
+    let wavePhase = 0;
+    function animateWave() {
+        wavePhase += 0.05;
+        const path = document.getElementById('wave-path');
+        if (path) {
+            const offset = Math.sin(wavePhase) * 4;
+            const offset2 = Math.cos(wavePhase * 0.7) * 3;
+            path.setAttribute('d',
+                `M0,${6+offset} Q15,${0+offset2} 30,${6+offset} T60,${6+offset2} T90,${6+offset} T120,${6+offset2} L120,12 L0,12 Z`
+            );
+        }
+        requestAnimationFrame(animateWave);
+    }
+    animateWave();
+
+    // ================================================================
+    //  页面切换
+    // ================================================================
+    function switchPage(pageId) {
+        document.querySelectorAll('.page').forEach(p => p.classList.add('hidden'));
+        document.getElementById(pageId).classList.remove('hidden');
+        currentPage = pageId;
+        document.querySelectorAll('.nav-item').forEach(item => item.classList.remove('active'));
+        const idx = ['connect-page', 'monitor-page'].indexOf(pageId);
+        if (idx >= 0) document.querySelectorAll('.nav-item')[idx].classList.add('active');
+        // 切换到监测页时重绘波形canvas
+        if (pageId === 'monitor-page') {
+            setTimeout(() => initWaveformCanvas(), 100);
+        }
+    }
+
+    // ================================================================
+    //  搜索/连接/断开
+    // ================================================================
+    async function searchDevices() {
+        try {
+            document.getElementById('search-btn').disabled = true;
+            document.getElementById('search-btn').innerHTML = '<i class="fa fa-spinner fa-spin mr-2"></i>搜索中...';
+            document.getElementById('device-list').classList.add('hidden');
+            document.getElementById('connecting').classList.remove('hidden');
+
+            const devices = await bluetoothManager.searchDevices();
+            document.getElementById('connecting').classList.add('hidden');
+
+            const container = document.getElementById('devices-container');
+            container.innerHTML = '';
+
+            if (devices && devices.length > 0) {
+                devices.forEach(device => {
+                    const el = document.createElement('div');
+                    el.className = 'card cursor-pointer mb-2';
+                    el.style.borderColor = '#2A3E5C';
+                    el.innerHTML = `
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <div class="font-bold text-sm">${device.name || '未知设备'}</div>
+                                <div class="text-xs" style="color:#5A6E8C;">${device.id || ''}</div>
+                            </div>
+                            <button onclick="connectToSpecificDevice()" class="btn-primary btn-sm">连接</button>
+                        </div>
+                    `;
+                    el.addEventListener('mouseenter', () => el.style.borderColor = 'rgba(0,212,255,0.4)');
+                    el.addEventListener('mouseleave', () => el.style.borderColor = '#2A3E5C');
+                    container.appendChild(el);
+                });
+                document.getElementById('device-list').classList.remove('hidden');
+                showToast(`找到 ${devices.length} 个蓝牙设备`, 'success');
+            } else {
+                container.innerHTML = `
+                    <div class="text-center py-4" style="color:#5A6E8C;">
+                        <i class="fa fa-info-circle text-xl mb-2"></i>
+                        <p class="text-sm">未找到可用的蓝牙设备</p>
+                        <p class="text-xs mt-1">请确保HC-05模块已开启</p>
+                    </div>
+                `;
+                document.getElementById('device-list').classList.remove('hidden');
+            }
+        } catch (error) {
+            document.getElementById('connecting').classList.add('hidden');
+            showToast('搜索失败，请重试', 'error');
+        } finally {
+            document.getElementById('search-btn').disabled = false;
+            document.getElementById('search-btn').innerHTML = '<i class="fa fa-search mr-2"></i>搜索设备';
+        }
+    }
+
+    async function connectToSpecificDevice() {
+        try {
+            document.getElementById('connection-status').classList.add('hidden');
+            document.getElementById('device-list').classList.add('hidden');
+            document.getElementById('connecting').classList.remove('hidden');
+
+            const success = await bluetoothManager.connectToDevice();
+            if (success) {
+                updateConnectionUI();
+                switchPage('monitor-page');
+                showToast('连接成功', 'success');
+                sendCurrentThresholdToDevice();  // 连接后自动下发当前阈值
+            } else {
+                showToast('连接失败，请重试', 'error');
+                document.getElementById('connection-status').classList.remove('hidden');
+                document.getElementById('connecting').classList.add('hidden');
+            }
+        } catch (error) {
+            console.error('连接失败详情:', error.name, error.message);
+            showToast(`连接失败: ${error.message}`, 'error');
+            document.getElementById('connection-status').classList.remove('hidden');
+            document.getElementById('connecting').classList.add('hidden');
+        }
+    }
+
+    async function disconnectFromDevice() {
+        try {
+            await bluetoothManager.disconnect();
+            restoreDefaultThresholds();  // 手动断开恢复默认阈值
+            updateConnectionUI();
+            switchPage('connect-page');
+            showToast('已断开连接，阈值已恢复默认', 'info');
+        } catch (error) {
+            bluetoothManager.forceReset();
+            restoreDefaultThresholds();
+            updateConnectionUI();
+            switchPage('connect-page');
+        }
+    }
+
+    // ================================================================
+    //  连接UI更新
+    // ================================================================
+    function updateConnectionUI() {
+        const isConnected = bluetoothManager.isConnected;
+        const btIcon = document.getElementById('bt-icon');
+        const monitorDot = document.getElementById('monitor-status-dot');
+        const monitorText = document.getElementById('monitor-status-text');
+
+        if (isConnected) {
+            btIcon.className = 'bt-icon-large connected';
+            btIcon.innerHTML = '<i class="fa fa-bluetooth" style="font-size:44px;color:#00E676;"></i>';
+            document.getElementById('connection-status').innerHTML = `
+                <div class="text-center py-6">
+                    <div class="text-4xl mb-4" style="color:#00E676;"><i class="fa fa-bluetooth"></i></div>
+                    <h3 class="text-lg font-bold mb-2">已连接</h3>
+                    <p class="text-sm mb-4" style="color:#5A6E8C;">设备: ${bluetoothManager.device.name || 'HC-05'}</p>
+                    <div class="flex flex-col gap-3">
+                        <button onclick="disconnectFromDevice()" class="btn-danger w-full"><i class="fa fa-times mr-2"></i>断开连接</button>
+                        <button onclick="switchPage('monitor-page')" class="btn-primary w-full"><i class="fa fa-tint mr-2"></i>进入监测</button>
+                    </div>
+                </div>
+            `;
+            if (monitorDot) { monitorDot.className = 'status-dot normal'; }
+            if (monitorText) { monitorText.textContent = '已连接'; monitorText.style.color = '#00E676'; }
+        } else {
+            btIcon.className = 'bt-icon-large disconnected';
+            btIcon.innerHTML = '<i class="fa fa-bluetooth" style="font-size:44px;color:#00D4FF;"></i>';
+            document.getElementById('connection-status').innerHTML = `
+                <div class="text-center py-6">
+                    <div class="text-4xl mb-4" style="color:#5A6E8C;"><i class="fa fa-bluetooth"></i></div>
+                    <h3 class="text-lg font-bold mb-2">未连接</h3>
+                    <p class="text-sm mb-6" style="color:#5A6E8C;">请点击下方按钮搜索并连接设备</p>
+                    <button onclick="searchDevices()" class="btn-primary w-full"><i class="fa fa-search mr-2"></i>搜索设备</button>
+                </div>
+            `;
+            if (monitorDot) { monitorDot.className = 'status-dot off'; }
+            if (monitorText) { monitorText.textContent = '未连接'; monitorText.style.color = '#5A6E8C'; }
+        }
+    }
+
+    // ================================================================
+    //  重连UI (在监测页面顶部显示重连状态)
+    // ================================================================
+    function updateReconnectUI(isReconnecting, countdownSeconds = 0, attemptNumber = 0) {
+        const el = document.getElementById('reconnect-banner');
+        if (!el) return;
+
+        if (isReconnecting) {
+            el.classList.remove('hidden');
+            el.innerHTML = `
+                <div class="flex items-center justify-between w-full">
+                    <div class="flex items-center gap-2">
+                        <i class="fa fa-refresh fa-spin" style="color:#FFB300;font-size:14px;"></i>
+                        <span class="text-xs" style="color:#FFB300;">正在自动重连 #${attemptNumber}...</span>
+                    </div>
+                    <div class="flex items-center gap-3">
+                        <span class="text-xs font-mono" style="color:#5A6E8C;">${countdownSeconds}s</span>
+                        <button onclick="cancelAutoReconnect()" class="text-xs px-2 py-1 rounded" style="color:#FF3D57;border:1px solid rgba(255,61,87,0.3);">取消</button>
+                    </div>
+                </div>
+            `;
+        } else {
+            el.classList.add('hidden');
+        }
+    }
+
+    function cancelAutoReconnect() {
+        if (bluetoothManager) {
+            bluetoothManager.manualDisconnect = true;
+            bluetoothManager.stopAutoReconnect();
+            bluetoothManager.autoReconnectCount = 0;
+        }
+        updateReconnectUI(false);
+        showToast('已取消自动重连', 'info');
+    }
+
+    // ================================================================
+    //  监测控制
+    // ================================================================
+    function startMonitoring() {
+        infusionParams.totalVolume = parseFloat(document.getElementById('total-volume').value) || 500;
+        infusionParams.dropsPerMl = parseInt(document.getElementById('drops-per-ml').value) || 15;
+
+        if (infusionParams.totalVolume <= 0) {
+            showToast('请输入有效的总容量', 'error');
+            return;
+        }
+
+        infusionParams.totalDrops = infusionParams.totalVolume * infusionParams.dropsPerMl;
+        infusionParams.cumulativeDrops = 0;
+        infusionParams.startTime = new Date();
+        infusionParams.currentDpm = 0;
+        infusionParams.filteredDpm = 0;
+        infusionParams.lastDpmUpdateTime = null;
+        isMonitoring = true;
+        // 输液参数使用默认值（OLED端硬编码500ml, 15滴/ml）
+        progressWarningActive = false;
+        progressDangerActive = false;
+
+        signalProcessor.reset();
+
+        document.getElementById('start-btn').disabled = true;
+        document.getElementById('start-btn').style.opacity = '0.4';
+        document.getElementById('reset-btn').disabled = false;
+        document.getElementById('reset-btn').style.opacity = '1';
+
+        document.getElementById('start-time').textContent = infusionParams.startTime.toLocaleTimeString('zh-CN');
+        document.getElementById('infused-ml').textContent = '0.0';
+        document.getElementById('remaining-ml').textContent = infusionParams.totalVolume.toFixed(1);
+        document.getElementById('time-remaining').textContent = '--:--';
+        document.getElementById('progress-percent').textContent = '0%';
+        document.getElementById('progress-bar').style.width = '0%';
+        document.getElementById('progress-bar').className = 'progress-fill normal';
+        document.getElementById('end-time').textContent = '--';
+        document.getElementById('total-drops-display').textContent = '0';
+        document.getElementById('filtered-dpm').textContent = '--';
+        document.getElementById('prediction-badge').classList.add('hidden');
+
+        updateIVBottle(0);
+        setDropAnimation(true);
+
+        startCountdownUpdate();
+        showToast('监测已开始', 'success');
+        saveSettings();
+    }
+
+    function resetMonitoring() {
+        infusionParams.cumulativeDrops = 0;
+        infusionParams.startTime = null;
+        infusionParams.currentDpm = 0;
+        infusionParams.filteredDpm = 0;
+        infusionParams.lastDpmUpdateTime = null;
+        isMonitoring = false;
+        alarmActive = false;
+        progressWarningActive = false;
+        progressDangerActive = false;
+
+        signalProcessor.reset();
+
+        document.getElementById('dpm-value').textContent = '--';
+        document.getElementById('dpm-value').className = 'dpm-display normal';
+        document.getElementById('time-remaining').textContent = '--:--';
+        document.getElementById('infused-ml').textContent = '0.0';
+        document.getElementById('remaining-ml').textContent = '--';
+        document.getElementById('progress-percent').textContent = '0%';
+        document.getElementById('progress-bar').style.width = '0%';
+        document.getElementById('progress-bar').className = 'progress-fill normal';
+        document.getElementById('start-time').textContent = '--';
+        document.getElementById('end-time').textContent = '--';
+        document.getElementById('last-drop-time').textContent = '--';
+        document.getElementById('total-drops-display').textContent = '--';
+        document.getElementById('filtered-dpm').textContent = '--';
+        document.getElementById('prediction-badge').classList.add('hidden');
+
+        updateStatusDisplay('NORMAL', 0);
+        updateIVBottle(0);
+        setDropAnimation(false);
+
+        document.getElementById('alarm-area').classList.add('hidden');
+
+        document.getElementById('start-btn').disabled = false;
+        document.getElementById('start-btn').style.opacity = '1';
+        document.getElementById('reset-btn').disabled = true;
+        document.getElementById('reset-btn').style.opacity = '0.4';
+
+        showToast('已重置', 'success');
+    }
+
+    // ================================================================
+    //  倒计时
+    // ================================================================
+    let countdownInterval = null;
+    function startCountdownUpdate() {
+        if (countdownInterval) clearInterval(countdownInterval);
+        countdownInterval = setInterval(() => {
+            if (isMonitoring) {
+                updateCountdown();
+            }
+        }, 1000);
+    }
+
+    function updateCountdown() {
+        if (!isMonitoring || !infusionParams.startTime) return;
+
+        // 积分计算: 累计滴数 + 当前段增量
+        let currentDrops = infusionParams.cumulativeDrops;
+        if (infusionParams.currentDpm > 0 && infusionParams.lastDpmUpdateTime !== null) {
+            const elapsedMs = Date.now() - infusionParams.lastDpmUpdateTime;
+            const elapsedMinutes = elapsedMs / 60000;
+            currentDrops += Math.round(infusionParams.currentDpm * elapsedMinutes);
+        }
+
+        const infusedMl = currentDrops / infusionParams.dropsPerMl;
+        const remainingMl = Math.max(0, infusionParams.totalVolume - infusedMl);
+        const progress = Math.min(100, Math.max(0, (infusedMl / infusionParams.totalVolume) * 100));
+
+        document.getElementById('infused-ml').textContent = infusedMl.toFixed(1);
+        document.getElementById('remaining-ml').textContent = remainingMl.toFixed(1);
+        document.getElementById('total-drops-display').textContent = currentDrops;
+
+        // 进度条
+        document.getElementById('progress-percent').textContent = progress >= 100 ? '已完成' : `${progress.toFixed(1)}%`;
+        const bar = document.getElementById('progress-bar');
+        bar.style.width = `${Math.min(progress, 100)}%`;
+
+        if (progress >= 100) {
+            bar.className = 'progress-fill complete';
+        } else if (progress >= PROGRESS_DANGER_THRESHOLD) {
+            bar.className = 'progress-fill danger';
+        } else if (progress >= PROGRESS_WARNING_THRESHOLD) {
+            bar.className = 'progress-fill warning';
+        } else {
+            bar.className = 'progress-fill normal';
+        }
+
+        // 输液瓶液位
+        updateIVBottle(progress / 100);
+
+        // 剩余时间
+        if (progress >= 100) {
+            document.getElementById('time-remaining').textContent = '已完成';
+            setDropAnimation(false);
+        } else if (infusionParams.currentDpm <= 0 || remainingMl <= 0) {
+            document.getElementById('time-remaining').textContent = '--:--';
+        } else {
+            // 使用趋势预测滴速计算剩余时间
+            const predictDpm = signalProcessor.predictionDpm > 0 ? signalProcessor.predictionDpm : infusionParams.currentDpm;
+            const remainingSeconds = (remainingMl * infusionParams.dropsPerMl * 60) / predictDpm;
+            document.getElementById('time-remaining').textContent = formatTime(remainingSeconds);
+        }
+
+        // 预测完成时间
+        if (isMonitoring && infusionParams.currentDpm > 0 && remainingMl > 0 && progress < 100) {
+            const predicted = signalProcessor.predictCompletionTime(remainingMl, infusionParams.dropsPerMl);
+            if (predicted) {
+                document.getElementById('end-time').textContent = predicted.toLocaleTimeString('zh-CN');
+                // 显示预测badge
+                const badge = document.getElementById('prediction-badge');
+                badge.classList.remove('hidden');
+                document.getElementById('prediction-text').textContent = `预测 ${predicted.toLocaleTimeString('zh-CN')}`;
+            }
+        } else if (progress >= 100) {
+            document.getElementById('end-time').textContent = '已完成';
+            document.getElementById('prediction-badge').classList.add('hidden');
+        } else {
+            document.getElementById('end-time').textContent = '--';
+            document.getElementById('prediction-badge').classList.add('hidden');
+        }
+
+        // 进度预警
+        if (!progressWarningActive && isMonitoring && progress >= PROGRESS_WARNING_THRESHOLD && progress < PROGRESS_DANGER_THRESHOLD) {
+            progressWarningActive = true;
+            showToast(`输液进度已达 ${progress.toFixed(1)}%，请留意`, 'warning');
+        }
+        if (!progressDangerActive && isMonitoring && progress >= PROGRESS_DANGER_THRESHOLD && progress < 100) {
+            progressDangerActive = true;
+            triggerAlarm('输液即将完成', `输液进度已达 ${progress.toFixed(1)}%，请及时准备更换输液袋或拔针`);
+        }
+    }
+
+    function formatTime(totalSeconds) {
+        if (totalSeconds > 86400) {
+            const days = Math.floor(totalSeconds / 86400);
+            const hours = Math.floor((totalSeconds % 86400) / 3600);
+            const minutes = Math.floor((totalSeconds % 3600) / 60);
+            return `${days}天${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}`;
+        }
+        const hours = Math.floor(totalSeconds / 3600);
+        const minutes = Math.floor((totalSeconds % 3600) / 60);
+        const seconds = Math.floor(totalSeconds % 60);
+        return `${String(hours).padStart(2,'0')}:${String(minutes).padStart(2,'0')}:${String(seconds).padStart(2,'0')}`;
+    }
+
+    // ================================================================
+    //  输液瓶液位
+    // ================================================================
+    function updateIVBottle(ratio) {
+        const liquid = document.getElementById('iv-liquid');
+        const percent = document.getElementById('iv-percent');
+        const height = Math.max(0, Math.min(100, (1 - ratio) * 100));
+        liquid.style.height = height + '%';
+        percent.textContent = (100 - height).toFixed(0) + '%';
+
+        // 颜色变化
+        liquid.classList.remove('low', 'critical');
+        if (height <= 5) {
+            liquid.classList.add('critical');
+            liquid.style.background = 'linear-gradient(180deg, rgba(255,61,87,0.5), rgba(255,61,87,0.8))';
+        } else if (height <= 15) {
+            liquid.classList.add('low');
+            liquid.style.background = 'linear-gradient(180deg, rgba(255,179,0,0.5), rgba(255,179,0,0.8))';
+        } else {
+            liquid.style.background = 'linear-gradient(180deg, rgba(0,212,255,0.5), rgba(0,212,255,0.8))';
+        }
+    }
+
+    function setDropAnimation(active) {
+        const drop = document.getElementById('iv-drop');
+        if (active && isMonitoring) {
+            drop.classList.remove('paused');
+        } else {
+            drop.classList.add('paused');
+        }
+    }
+
+    // ================================================================
+    //  监测UI更新
+    // ================================================================
+    function updateMonitorUI() {
+        const data = dataParser.data;
+
+        // 滴速显示(使用滤波后的值)
+        const displayDpm = infusionParams.filteredDpm > 0 ? infusionParams.filteredDpm : (data.speed || 0);
+        const dpmEl = document.getElementById('dpm-value');
+        if (displayDpm <= 0 || data.speed === 0) {
+            dpmEl.textContent = '--';
+            dpmEl.className = 'dpm-display normal';
+        } else {
+            dpmEl.textContent = typeof displayDpm === 'number' ? (displayDpm % 1 === 0 ? displayDpm : displayDpm.toFixed(1)) : displayDpm;
+            // 颜色随状态变化
+            if (data.status === 'NO_DROP' || data.error === 1) {
+                dpmEl.className = 'dpm-display danger';
+            } else if (displayDpm < DPM_MIN || displayDpm > DPM_MAX) {
+                dpmEl.className = 'dpm-display warning';
+            } else {
+                dpmEl.className = 'dpm-display normal';
+            }
+        }
+
+        // 滤波后滴速显示
+        const filteredEl = document.getElementById('filtered-dpm');
+        if (infusionParams.filteredDpm > 0) {
+            filteredEl.textContent = infusionParams.filteredDpm.toFixed(1) + ' DPM';
+        } else {
+            filteredEl.textContent = '--';
+        }
+
+        // 上次滴液时间
+        if (data.lastUpdate > 0) {
+            document.getElementById('last-drop-time').textContent = new Date(data.lastUpdate).toLocaleTimeString('zh-CN');
+        }
+
+        // 状态显示
+        updateStatusDisplay(data.status, data.error);
+    }
+
+    // ================================================================
+    //  状态显示
+    // ================================================================
+    function updateStatusDisplay(status, error) {
+        const indicator = document.getElementById('status-indicator');
+        const text = document.getElementById('status-text');
+        const detail = document.getElementById('status-detail');
+
+        if (status === 'NO_DROP') {
+            indicator.className = 'status-dot danger';
+            text.textContent = '滴液停止';
+            text.style.color = '#FF3D57';
+            detail.textContent = `超过${Math.round(NO_DROP_TIMEOUT/1000)}秒未检测到滴液，请检查输液管`;
+        } else if (error === 1) {
+            indicator.className = 'status-dot warning';
+            text.textContent = '速度异常';
+            text.style.color = '#FFB300';
+            detail.textContent = `滴速超出正常范围(${DPM_MIN}-${DPM_MAX} DPM)`;
+        } else {
+            indicator.className = 'status-dot normal';
+            text.textContent = '系统正常';
+            text.style.color = '#00E676';
+            detail.textContent = '滴液运行正常';
+        }
+    }
+
+    // ================================================================
+    //  警报
+    // ================================================================
+    function checkAlarms() {
+        const data = dataParser.data;
+        if (data.status === 'NO_DROP' && isMonitoring && !alarmActive) {
+            triggerAlarm('滴液已停止', `超过${Math.round(NO_DROP_TIMEOUT/1000)}秒未检测到滴液，请立即检查输液管是否堵塞或已输完`);
+            document.getElementById('time-remaining').textContent = '00:00';
+        } else if (data.error === 1 && isMonitoring && !alarmActive) {
+            triggerAlarm('滴速异常', `滴速超出正常范围(${DPM_MIN}-${DPM_MAX} DPM)，请检查输液管或调整滴速`);
+        }
+    }
+
+    function triggerAlarm(title, message) {
+        alarmActive = true;
+        document.getElementById('alarm-title').textContent = title;
+        document.getElementById('alarm-message').textContent = message;
+        document.getElementById('alarm-area').classList.remove('hidden');
+
+        // 警报声（医疗级急促双音报警，持续2秒）
+        try {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const now = audioContext.currentTime;
+            // 医疗设备风格：高频-低频交替急促报警
+            const pattern = [1200, 800, 1200, 800, 1200, 800, 1200, 800];
+            pattern.forEach((freq, i) => {
+                const osc = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                osc.connect(gain);
+                gain.connect(audioContext.destination);
+                osc.type = 'sine';
+                osc.frequency.value = freq;
+                const t = now + i * 0.18;
+                gain.gain.setValueAtTime(0.25, t);
+                gain.gain.setValueAtTime(0.25, t + 0.1);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 0.16);
+                osc.start(t);
+                osc.stop(t + 0.16);
+            });
+            // 结尾长音
+            const oscEnd = audioContext.createOscillator();
+            const gainEnd = audioContext.createGain();
+            oscEnd.connect(gainEnd);
+            gainEnd.connect(audioContext.destination);
+            oscEnd.type = 'sine';
+            oscEnd.frequency.value = 1000;
+            gainEnd.gain.setValueAtTime(0.2, now + 1.5);
+            gainEnd.gain.exponentialRampToValueAtTime(0.001, now + 2.0);
+            oscEnd.start(now + 1.5);
+            oscEnd.stop(now + 2.0);
+        } catch (e) {}
+
+        showToast(title + ': ' + message, 'error');
+    }
+
+    function acknowledgeAlarm() {
+        alarmActive = false;
+        progressWarningActive = false;
+        progressDangerActive = false;
+        document.getElementById('alarm-area').classList.add('hidden');
+        showToast('警报已确认', 'success');
+    }
+
+    // ================================================================
+    //  Toast
+    // ================================================================
+    let toastTimeout = null;
+    function showToast(message, type = 'info') {
+        const toast = document.getElementById('toast');
+        const icon = document.getElementById('toast-icon');
+        const msg = document.getElementById('toast-message');
+
+        const map = {
+            success: { icon: 'fa-check-circle', color: '#00E676' },
+            error:   { icon: 'fa-times-circle', color: '#FF3D57' },
+            warning: { icon: 'fa-exclamation-triangle', color: '#FFB300' },
+            info:    { icon: 'fa-info-circle', color: '#00D4FF' }
+        };
+        const cfg = map[type] || map.info;
+        icon.className = `fa ${cfg.icon}`;
+        icon.style.color = cfg.color;
+        msg.textContent = message;
+
+        toast.classList.add('show');
+        if (toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // ================================================================
+    //  蓝牙支持检测
+    // ================================================================
+    function checkBluetoothSupport() {
+        if (!navigator.bluetooth) {
+            const modal = document.createElement('div');
+            modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.8);display:flex;align-items:center;justify-content:center;z-index:200;padding:16px;';
+            modal.innerHTML = `
+                <div class="card card-glow" style="max-width:400px;width:100%;text-align:center;">
+                    <div style="font-size:36px;margin-bottom:16px;color:#00D4FF;"><i class="fa fa-info-circle"></i></div>
+                    <h2 class="text-lg font-bold mb-2">蓝牙功能提示</h2>
+                    <p class="text-sm mb-4" style="color:#8899B4;">您的浏览器可能不完全支持Web Bluetooth API</p>
+                    <div style="background:#0B1426;border-radius:10px;padding:12px;margin-bottom:16px;text-align:left;font-size:13px;color:#8899B4;">
+                        <p class="mb-2"><i class="fa fa-check-circle mr-2" style="color:#00E676;"></i>推荐使用Chrome浏览器</p>
+                        <p class="mb-2"><i class="fa fa-check-circle mr-2" style="color:#00E676;"></i>确保使用HTTPS连接</p>
+                        <p><i class="fa fa-check-circle mr-2" style="color:#00E676;"></i>手机端请开启蓝牙和位置权限</p>
+                    </div>
+                    <button onclick="this.closest('div').parentElement.remove()" class="btn-primary w-full">继续使用</button>
+                </div>
+            `;
+            document.body.appendChild(modal);
+        }
+    }
+
+    // ================================================================
+    //  设置保存/加载
+    // ================================================================
+    function saveSettings() {
+        try {
+            const settings = {
+                totalVolume: document.getElementById('total-volume').value,
+                dropsPerMl: document.getElementById('drops-per-ml').value
+            };
+            localStorage.setItem('infusionSettings', JSON.stringify(settings));
+        } catch (e) {}
+    }
+
+    function loadSettings() {
+        try {
+            const stored = localStorage.getItem('infusionSettings');
+            if (stored) {
+                const settings = JSON.parse(stored);
+                document.getElementById('total-volume').value = settings.totalVolume || 500;
+                document.getElementById('drops-per-ml').value = settings.dropsPerMl || 15;
+            }
+        } catch (e) {}
+    }
+
+    // ================================================================
+    //  报警阈值管理
+    // ================================================================
+
+    // 应用阈值到本地变量（不发送到设备）
+    function applyThresholdLocally(timeoutMs, minDpm, maxDpm) {
+        NO_DROP_TIMEOUT = timeoutMs;
+        RESET_TIMEOUT = timeoutMs > 5000 ? timeoutMs : timeoutMs * 2;
+        DPM_MIN = minDpm;
+        DPM_MAX = maxDpm;
+        updateInstructionText();
+    }
+
+    // 同步连接页面的说明文字
+    function updateInstructionText() {
+        const rangeEls = document.querySelectorAll('.instruction-dpm-range');
+        rangeEls.forEach(el => {
+            el.textContent = `${DPM_MIN}-${DPM_MAX}`;
+        });
+        const timeoutEls = document.querySelectorAll('.instruction-timeout');
+        timeoutEls.forEach(el => {
+            el.textContent = `${Math.round(NO_DROP_TIMEOUT / 1000)}`;
+        });
+    }
+
+    // 恢复默认阈值（断开连接时调用）
+    // 断开连接时恢复默认阈值（本地UI恢复，硬件也恢复）
+    function restoreDefaultThresholds() {
+        DPM_MIN = DEFAULT_DPM_MIN;
+        DPM_MAX = DEFAULT_DPM_MAX;
+        NO_DROP_TIMEOUT = DEFAULT_NO_DROP_TIMEOUT;
+        RESET_TIMEOUT = DEFAULT_RESET_TIMEOUT;
+        updateInstructionText();
+    }
+
+    async function sendCurrentThresholdToDevice() {
+        // 阈值使用硬编码默认值，无需下发
+    }
+
+
+
+    // ================================================================
+    //  页面卸载清理
+    // ================================================================
+    window.addEventListener('beforeunload', () => {
+        if (countdownInterval) clearInterval(countdownInterval);
+        if (waveformAnimFrame) cancelAnimationFrame(waveformAnimFrame);
+        if (bluetoothManager) bluetoothManager.stopKeepAlive();
+    });
+
+    // 窗口尺寸变化时重绘canvas
+    window.addEventListener('resize', () => {
+        if (currentPage === 'monitor-page') initWaveformCanvas();
+    });
+    </script>
+</body>
+</html>
