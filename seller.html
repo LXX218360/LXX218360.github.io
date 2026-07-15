@@ -215,7 +215,8 @@ function generateCodes() {
         html += '<button class="btn-sm btn-primary" onclick="copyToClipboard(\'' + c + '\')">复制</button>';
         html += '</div>';
       });
-      html += '<button class="btn-sm btn-primary" style="margin-top:8px;" onclick="copyToClipboard(\'' + data.codes.join(\'\\n\') + '\')">复制全部</button>';
+      var allCodes = data.codes.join('\\n');
+      html += '<button class="btn-sm btn-primary" style="margin-top:8px;" onclick="copyToClipboard(\'' + allCodes + '\')">复制全部</button>';
       html += '</div>';
       resultEl.innerHTML = html;
       loadCodeList();
