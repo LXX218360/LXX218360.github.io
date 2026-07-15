@@ -1,5 +1,22 @@
 from flask import Flask, request, jsonify, send_from_directory, make_response
-import json, os, random, string, time
+import json, os, random, string, time, re
+import time as _time
+
+# 简单速率限制
+_rate_limits = {}
+def rate_limit_check(key, max_requests=30, window_seconds=60):
+    """简单速率限制检查"""
+    now = _time.time()
+    if key not in _rate_limits:
+        _rate_limits[key] = []
+    _rate_limits[key] = [t for t in _rate_limits[key] if now - t < window_seconds]
+    if len(_rate_limits[key]) >= max_requests:
+        return False
+    _rate_limits[key].append(now)
+    return True
+
+def is_valid_phone(phone):
+    return bool(phone and re.match(r'^1[3-9]\d{9}$', phone))
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DB_FILE = os.path.join(BASE_DIR, 'codes.json')
@@ -77,7 +94,7 @@ def seller_panel():
         html_path = os.path.join(BASE_DIR, fname)
         if os.path.exists(html_path):
             return send_from_directory(BASE_DIR, fname)
-    return '<h1>seller.html not found</h1><p>Please upload seller.html to: ' + BASE_DIR + '</p>', 404
+    return '<h1>页面未找到</h1><p>请联系管理员配置 seller.html</p>', 404
 
 # ============================================================
 # API 接口
@@ -86,12 +103,26 @@ def seller_panel():
 @app.route('/api/generate', methods=['POST'])
 def api_generate():
     data = request.get_json() or {}
+
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    if not rate_limit_check(client_ip + '_generate', max_requests=10, window_seconds=60):
+        return jsonify({'success': False, 'msg': '操作太频繁，请稍后再试'}), 429
+
     if not check_password(data.get('password', '')):
         return jsonify({'success': False, 'msg': '密码错误'}), 403
 
     plan = data.get('plan', 'lifetime')
-    count = min(int(data.get('count', 1)), 50)
+    if plan not in ('lifetime', 'year', 'month'):
+        return jsonify({'success': False, 'msg': '无效的套餐类型'}), 400
+
+    try:
+        count = min(int(data.get('count', 1)), 50)
+    except (ValueError, TypeError):
+        return jsonify({'success': False, 'msg': '数量必须是数字'}), 400
+
     phone = data.get('phone', '')
+    if phone and not is_valid_phone(phone):
+        return jsonify({'success': False, 'msg': '手机号格式不正确'}), 400
 
     db = load_db()
     # 移除配置项，只保留激活码
@@ -117,11 +148,19 @@ def api_generate():
 @app.route('/api/activate', methods=['POST'])
 def api_activate():
     data = request.get_json() or {}
+
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    if not rate_limit_check(client_ip + '_activate', max_requests=10, window_seconds=60):
+        return jsonify({'success': False, 'msg': '操作太频繁，请稍后再试'}), 429
+
     code = data.get('code', '').upper()
     phone = data.get('phone', '')
 
     if not code or not phone:
         return jsonify({'success': False, 'msg': '参数缺失'}), 400
+
+    if not is_valid_phone(phone):
+        return jsonify({'success': False, 'msg': '手机号格式不正确'}), 400
 
     db = load_db()
     if code not in db or code.startswith('_'):
@@ -218,14 +257,19 @@ def api_check():
 def api_change_password():
     """修改管理员密码"""
     data = request.get_json() or {}
+
+    client_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
+    if not rate_limit_check(client_ip + '_change_password', max_requests=5, window_seconds=60):
+        return jsonify({'success': False, 'msg': '操作太频繁，请稍后再试'}), 429
+
     old_pw = data.get('old_password', '')
     new_pw = data.get('new_password', '')
 
     if not check_password(old_pw):
         return jsonify({'success': False, 'msg': '当前密码错误'}), 403
 
-    if not new_pw or len(new_pw) < 4:
-        return jsonify({'success': False, 'msg': '新密码至少4位'}), 400
+    if not new_pw or len(new_pw) < 6:
+        return jsonify({'success': False, 'msg': '新密码至少6位'}), 400
 
     set_admin_password(new_pw)
     return jsonify({'success': True, 'msg': '密码修改成功'})
@@ -241,7 +285,7 @@ if __name__ == '__main__':
     print('=' * 50)
     print(f'API地址: http://0.0.0.0:{port}')
     print(f'创作者面板: http://0.0.0.0:{port}/seller')
-    print(f'管理密码: {get_admin_password()}')
+    print(f'管理密码: 已{"设置" if os.path.exists(DB_FILE) else "使用默认"}')
     print(f'数据库: {DB_FILE}')
     print('=' * 50)
     app.run(host='0.0.0.0', port=port, debug=False)
