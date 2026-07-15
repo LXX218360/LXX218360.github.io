@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>护眼精灵 - 创作者管理面板</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0f172a; color: #e2e8f0; min-height: 100vh; padding: 20px;
+  }
+  .container { max-width: 600px; margin: 0 auto; }
+  h1 { font-size: 1.5rem; margin-bottom: 24px; color: #38bdf8; }
+  .card {
+    background: #1e293b; border-radius: 12px; padding: 20px; margin-bottom: 16px;
+    border: 1px solid #334155;
+  }
+  .card h2 { font-size: 1rem; margin-bottom: 12px; color: #94a3b8; }
+  input, select {
+    width: 100%; padding: 10px 12px; border-radius: 8px; border: 1px solid #475569;
+    background: #0f172a; color: #e2e8f0; font-size: 0.9rem; margin-bottom: 10px;
+  }
+  input:focus, select:focus { outline: none; border-color: #38bdf8; }
+  button {
+    padding: 10px 20px; border-radius: 8px; border: none; cursor: pointer;
+    font-size: 0.9rem; font-weight: 500; transition: opacity 0.2s;
+  }
+  button:hover { opacity: 0.85; }
+  .btn-primary { background: #0ea5e9; color: #fff; }
+  .btn-success { background: #10b981; color: #fff; }
+  .btn-danger { background: #ef4444; color: #fff; }
+  .btn-sm { padding: 6px 12px; font-size: 0.8rem; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row > * { flex: 1; }
+  .row > .btn-sm { flex: 0 0 auto; }
+  .msg { padding: 10px; border-radius: 8px; margin-top: 10px; font-size: 0.85rem; }
+  .msg.ok { background: #064e3b; color: #6ee7b7; }
+  .msg.err { background: #450a0a; color: #fca5a5; }
+  .code-list { margin-top: 12px; }
+  .code-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 8px 0; border-bottom: 1px solid #334155; font-size: 0.85rem;
+  }
+  .code-item:last-child { border-bottom: none; }
+  .code-text { font-family: monospace; letter-spacing: 0.05em; color: #38bdf8; }
+  .tag {
+    display: inline-block; padding: 2px 8px; border-radius: 4px;
+    font-size: 0.7rem; margin-left: 6px;
+  }
+  .tag.used { background: #064e3b; color: #6ee7b7; }
+  .tag.unused { background: #451a03; color: #fdba74; }
+  .hidden { display: none !important; }
+  .lock-screen {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.95);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .lock-box { background: #1e293b; padding: 30px; border-radius: 16px; width: 320px; text-align: center; }
+  .lock-box h3 { margin-bottom: 16px; color: #38bdf8; }
+  .tab-bar { display: flex; gap: 4px; margin-bottom: 16px; }
+  .tab-bar button {
+    flex: 1; background: #334155; color: #94a3b8; padding: 8px;
+  }
+  .tab-bar button.active { background: #0ea5e9; color: #fff; }
+  .tab-content.hidden { display: none; }
+  .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+  .stat-box { background: #0f172a; padding: 12px; border-radius: 8px; text-align: center; }
+  .stat-box .num { font-size: 1.5rem; font-weight: 700; color: #38bdf8; }
+  .stat-box .label { font-size: 0.75rem; color: #64748b; margin-top: 4px; }
+</style>
+</head>
+<body>
+
+<!-- 密码验证遮罩 -->
+<div id="lock-screen" class="lock-screen">
+  <div class="lock-box">
+    <h3>创作者管理面板</h3>
+    <p style="color:#64748b;font-size:0.8rem;margin-bottom:12px;">请输入创作者密码</p>
+    <input type="password" id="lock-pw" placeholder="创作者密码" onkeydown="if(event.key==='Enter')doUnlock()">
+    <button class="btn-primary" style="width:100%;margin-top:10px;" onclick="doUnlock()">验证</button>
+    <div id="lock-msg"></div>
+  </div>
+</div>
+
+<div class="container">
+  <h1>创作者管理面板</h1>
+
+  <!-- API配置 -->
+  <div class="card">
+    <h2>API服务器配置</h2>
+    <div class="row">
+      <input type="text" id="api-url" value="" placeholder="API服务器地址">
+      <button class="btn-primary btn-sm" onclick="saveApiUrl()">保存</button>
+    </div>
+    <div id="api-msg"></div>
+  </div>
+
+  <!-- 统计 -->
+  <div class="card">
+    <h2>激活码概览</h2>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="num" id="stat-total">-</div><div class="label">总数</div></div>
+      <div class="stat-box"><div class="num" id="stat-used">-</div><div class="label">已使用</div></div>
+      <div class="stat-box"><div class="num" id="stat-unused">-</div><div class="label">未使用</div></div>
+    </div>
+    <button class="btn-primary btn-sm" onclick="loadCodeList()">刷新数据</button>
+  </div>
+
+  <!-- 生成激活码 -->
+  <div class="card">
+    <h2>生成激活码</h2>
+    <div class="row">
+      <select id="gen-plan">
+        <option value="lifetime">永久版 (29.9元)</option>
+        <option value="year">年卡 (19.9元)</option>
+        <option value="month">月卡 (9.9元)</option>
+      </select>
+      <input type="number" id="gen-count" value="1" min="1" max="50" style="flex:0 0 80px;text-align:center;">
+    </div>
+    <input type="text" id="gen-phone" placeholder="绑定手机号（可选，留空则由用户自行绑定）">
+    <button class="btn-success" style="width:100%;" onclick="generateCodes()">生成激活码</button>
+    <div id="gen-result"></div>
+  </div>
+
+  <!-- 激活码列表 -->
+  <div class="card">
+    <h2>已生成激活码</h2>
+    <div id="code-list" class="code-list">
+      <div style="color:#64748b;text-align:center;padding:20px;">点击"刷新数据"加载</div>
+    </div>
+  </div>
+
+  <!-- 修改密码 -->
+  <div class="card">
+    <h2>修改管理密码</h2>
+    <input type="password" id="pw-old" placeholder="当前密码">
+    <input type="password" id="pw-new" placeholder="新密码">
+    <input type="password" id="pw-confirm" placeholder="确认新密码">
+    <button class="btn-primary btn-sm" onclick="changePassword()">修改密码</button>
+    <div id="pw-msg"></div>
+  </div>
+
+</div>
+
+<script>
+// 配置
+var API_BASE = localStorage.getItem('seller_api_url') || '';
+var SELLER_PW = localStorage.getItem('seller_password') || 'lxx218360lxx';
+
+// 智能检测API地址
+(function(){
+  var h = window.location.origin;
+  var p = window.location.pathname;
+  if (p.indexOf('/seller') === 0 && !API_BASE) {
+    API_BASE = h;
+    localStorage.setItem('seller_api_url', API_BASE);
+  }
+  var el = document.getElementById('api-url');
+  if (el) el.value = API_BASE || 'https://18073951649.pythonanywhere.com';
+})();
+
+function showMsg(id, text, ok) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'msg ' + (ok ? 'ok' : 'err');
+  el.textContent = text;
+}
+
+function doUnlock() {
+  var pw = document.getElementById('lock-pw').value.trim();
+  if (pw === SELLER_PW) {
+    document.getElementById('lock-screen').classList.add('hidden');
+    loadCodeList();
+  } else {
+    showMsg('lock-msg', '密码错误', false);
+  }
+}
+
+function saveApiUrl() {
+  var url = document.getElementById('api-url').value.trim();
+  if (!url) { showMsg('api-msg', '请输入API地址', false); return; }
+  API_BASE = url.replace(/\/$/, '');
+  localStorage.setItem('seller_api_url', API_BASE);
+  showMsg('api-msg', '已保存: ' + API_BASE, true);
+}
+
+function apiPost(path, body) {
+  return fetch(API_BASE + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(r){ return r.json(); });
+}
+
+function generateCodes() {
+  var plan = document.getElementById('gen-plan').value;
+  var count = parseInt(document.getElementById('gen-count').value) || 1;
+  var phone = document.getElementById('gen-phone').value.trim();
+  var resultEl = document.getElementById('gen-result');
+
+  resultEl.innerHTML = '<div style="color:#64748b;">正在生成...</div>';
+
+  apiPost('/api/generate', {
+    password: SELLER_PW,
+    plan: plan,
+    count: count,
+    phone: phone
+  }).then(function(data) {
+    if (data.success && data.codes) {
+      var html = '<div style="margin-top:12px;">';
+      html += '<div style="color:#6ee7b7;font-weight:600;margin-bottom:8px;">生成成功！共 ' + data.codes.length + ' 个</div>';
+      data.codes.forEach(function(c) {
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:6px 0;border-bottom:1px solid #334155;">';
+        html += '<span class="code-text">' + c + '</span>';
+        html += '<button class="btn-sm btn-primary" onclick="copyToClipboard(\'' + c + '\')">复制</button>';
+        html += '</div>';
+      });
+      html += '<button class="btn-sm btn-primary" style="margin-top:8px;" onclick="copyToClipboard(\'' + data.codes.join(\'\\n\') + '\')">复制全部</button>';
+      html += '</div>';
+      resultEl.innerHTML = html;
+      loadCodeList();
+    } else {
+      resultEl.innerHTML = '<div class="msg err">生成失败: ' + (data.msg || '未知错误') + '</div>';
+    }
+  }).catch(function(err) {
+    resultEl.innerHTML = '<div class="msg err">连接失败: ' + err.message + '</div>';
+  });
+}
+
+function loadCodeList() {
+  var listEl = document.getElementById('code-list');
+  listEl.innerHTML = '<div style="color:#64748b;text-align:center;padding:20px;">加载中...</div>';
+
+  apiPost('/api/list', { password: SELLER_PW }).then(function(data) {
+    if (data.success && data.codes) {
+      var codes = data.codes;
+      var total = Object.keys(codes).length;
+      var used = 0, unused = 0;
+      var html = '';
+
+      Object.keys(codes).sort().forEach(function(code) {
+        var rec = codes[code];
+        if (rec.used) used++; else unused++;
+        html += '<div class="code-item">';
+        html += '<div><span class="code-text">' + code + '</span>';
+        html += '<span class="tag ' + (rec.used ? 'used' : 'unused') + '">' + (rec.used ? '已使用' : '未使用') + '</span></div>';
+        html += '<div style="color:#64748b;font-size:0.75rem;">' + (rec.phone || '-') + '</div>';
+        html += '</div>';
+      });
+
+      if (total === 0) {
+        html = '<div style="color:#64748b;text-align:center;padding:20px;">暂无激活码</div>';
+      }
+
+      document.getElementById('stat-total').textContent = total;
+      document.getElementById('stat-used').textContent = used;
+      document.getElementById('stat-unused').textContent = unused;
+      listEl.innerHTML = html;
+    } else {
+      listEl.innerHTML = '<div class="msg err">加载失败: ' + (data.msg || '未知错误') + '</div>';
+    }
+  }).catch(function(err) {
+    listEl.innerHTML = '<div class="msg err">连接失败: ' + err.message + '</div>';
+  });
+}
+
+function changePassword() {
+  var oldPw = document.getElementById('pw-old').value.trim();
+  var newPw = document.getElementById('pw-new').value.trim();
+  var confirmPw = document.getElementById('pw-confirm').value.trim();
+
+  if (oldPw !== SELLER_PW) { showMsg('pw-msg', '当前密码错误', false); return; }
+  if (!newPw || newPw.length < 4) { showMsg('pw-msg', '新密码至少4位', false); return; }
+  if (newPw !== confirmPw) { showMsg('pw-msg', '两次输入不一致', false); return; }
+
+  showMsg('pw-msg', '正在修改...', true);
+
+  apiPost('/api/change_password', {
+    old_password: oldPw,
+    new_password: newPw
+  }).then(function(data) {
+    if (data.success) {
+      SELLER_PW = newPw;
+      localStorage.setItem('seller_password', newPw);
+      showMsg('pw-msg', '密码修改成功（已同步到服务器）', true);
+      document.getElementById('pw-old').value = '';
+      document.getElementById('pw-new').value = '';
+      document.getElementById('pw-confirm').value = '';
+    } else {
+      showMsg('pw-msg', '修改失败: ' + (data.msg || '未知错误'), false);
+    }
+  }).catch(function(err) {
+    showMsg('pw-msg', '连接失败: ' + err.message, false);
+  });
+}
+
+function copyToClipboard(text) {
+  navigator.clipboard.writeText(text).then(function() {
+    alert('已复制: ' + text.substring(0, 30) + (text.length > 30 ? '...' : ''));
+  }).catch(function() {
+    // 降级方案
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    alert('已复制');
+  });
+}
+</script>
+
+</body>
+</html>
