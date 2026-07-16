@@ -1,0 +1,830 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>护眼精灵 - 创作者管理面板</title>
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+    color: #e2e8f0; min-height: 100vh; padding: 20px;
+  }
+  .container { max-width: 680px; margin: 0 auto; }
+  h1 {
+    font-size: 1.6rem; margin-bottom: 6px;
+    background: linear-gradient(135deg, #38bdf8, #818cf8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .subtitle { color: #64748b; font-size: 0.8rem; margin-bottom: 20px; }
+  .card {
+    background: rgba(30,41,59,0.85); backdrop-filter: blur(10px);
+    border-radius: 16px; padding: 20px; margin-bottom: 16px;
+    border: 1px solid rgba(51,65,85,0.6);
+    transition: border-color 0.3s;
+  }
+  .card:hover { border-color: rgba(56,189,248,0.3); }
+  .card h2 {
+    font-size: 0.95rem; margin-bottom: 14px; color: #94a3b8;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .card h2::before {
+    content: ''; display: inline-block; width: 3px; height: 16px;
+    background: linear-gradient(180deg, #38bdf8, #818cf8); border-radius: 2px;
+  }
+  input, select, textarea {
+    width: 100%; padding: 10px 14px; border-radius: 10px;
+    border: 1px solid #334155; background: #0f172a; color: #e2e8f0;
+    font-size: 0.88rem; margin-bottom: 10px; transition: border-color 0.2s;
+  }
+  input:focus, select:focus, textarea:focus { outline: none; border-color: #38bdf8; box-shadow: 0 0 0 3px rgba(56,189,248,0.1); }
+  button {
+    padding: 10px 20px; border-radius: 10px; border: none; cursor: pointer;
+    font-size: 0.88rem; font-weight: 600; transition: all 0.2s;
+  }
+  button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.2); }
+  button:active { transform: translateY(0); }
+  .btn-primary { background: linear-gradient(135deg, #0ea5e9, #6366f1); color: #fff; }
+  .btn-success { background: linear-gradient(135deg, #10b981, #059669); color: #fff; }
+  .btn-danger { background: linear-gradient(135deg, #ef4444, #dc2626); color: #fff; }
+  .btn-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: #fff; }
+  .btn-ghost {
+    background: transparent; border: 1px solid #334155; color: #94a3b8;
+  }
+  .btn-ghost:hover { background: #1e293b; border-color: #475569; }
+  .btn-sm { padding: 6px 14px; font-size: 0.78rem; border-radius: 8px; }
+  .btn-xs { padding: 4px 10px; font-size: 0.72rem; border-radius: 6px; }
+  .row { display: flex; gap: 10px; align-items: center; }
+  .row > * { flex: 1; }
+  .row > .btn-sm, .row > .btn-xs { flex: 0 0 auto; }
+  .msg {
+    padding: 10px 14px; border-radius: 10px; margin-top: 10px;
+    font-size: 0.82rem; line-height: 1.5;
+  }
+  .msg.ok { background: rgba(6,78,59,0.5); color: #6ee7b7; border: 1px solid rgba(16,185,129,0.3); }
+  .msg.err { background: rgba(69,10,10,0.5); color: #fca5a5; border: 1px solid rgba(239,68,68,0.3); }
+  .code-list { margin-top: 12px; }
+  .code-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 0; border-bottom: 1px solid rgba(51,65,85,0.5);
+    font-size: 0.85rem; transition: background 0.15s;
+  }
+  .code-item:hover { background: rgba(56,189,248,0.03); }
+  .code-item:last-child { border-bottom: none; }
+  .code-main { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .code-text {
+    font-family: 'SF Mono', 'Fira Code', monospace; letter-spacing: 0.04em;
+    color: #38bdf8; font-size: 0.82rem; word-break: break-all;
+  }
+  .code-meta { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .tag {
+    display: inline-flex; align-items: center; padding: 2px 8px; border-radius: 6px;
+    font-size: 0.7rem; font-weight: 500;
+  }
+  .tag.used { background: rgba(6,78,59,0.6); color: #6ee7b7; }
+  .tag.unused { background: rgba(69,26,3,0.6); color: #fdba74; }
+  .tag.revoked { background: rgba(74,4,78,0.6); color: #e9d5ff; }
+  .tag.plan-tag { background: rgba(30,41,59,0.8); color: #94a3b8; }
+  .tag.phone-tag { background: rgba(30,41,59,0.8); color: #7dd3fc; }
+  .remaining-days { color: #fbbf24; font-size: 0.72rem; font-weight: 600; }
+  .remaining-expired { color: #f87171; font-size: 0.72rem; font-weight: 600; }
+  .hidden { display: none !important; }
+  .lock-screen {
+    position: fixed; inset: 0; background: rgba(15,23,42,0.97);
+    display: flex; align-items: center; justify-content: center; z-index: 100;
+  }
+  .lock-box {
+    background: #1e293b; padding: 32px; border-radius: 20px; width: 340px;
+    text-align: center; border: 1px solid #334155;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+  }
+  .lock-icon { font-size: 2.5rem; margin-bottom: 12px; }
+  .lock-box h3 {
+    margin-bottom: 6px;
+    background: linear-gradient(135deg, #38bdf8, #818cf8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+  }
+  .stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+  .stat-box {
+    background: rgba(15,23,42,0.7); padding: 14px 8px; border-radius: 12px;
+    text-align: center; border: 1px solid rgba(51,65,85,0.4);
+  }
+  .stat-box .num { font-size: 1.6rem; font-weight: 800; color: #38bdf8; }
+  .stat-box .label { font-size: 0.72rem; color: #64748b; margin-top: 4px; }
+  .confirm-overlay {
+    position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+    display: none; align-items: center; justify-content: center; z-index: 200;
+  }
+  .confirm-overlay.open { display: flex; }
+  .confirm-box {
+    background: #1e293b; padding: 28px; border-radius: 16px;
+    width: 400px; max-width: 92vw;
+    border: 1px solid #334155;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+  }
+  .confirm-box h4 { margin-bottom: 12px; color: #fca5a5; font-size: 1rem; }
+  .confirm-box p { color: #94a3b8; font-size: 0.85rem; margin-bottom: 14px; line-height: 1.5; }
+  .confirm-box .code-highlight {
+    font-family: 'SF Mono', 'Fira Code', monospace; color: #38bdf8;
+    background: rgba(56,189,248,0.1); padding: 2px 8px; border-radius: 4px;
+  }
+  .lifetime-note { color: #64748b; font-size: 0.78rem; margin-top: 8px; font-style: italic; }
+  .section-divider {
+    height: 1px; background: linear-gradient(90deg, transparent, #334155, transparent);
+    margin: 16px 0;
+  }
+  .empty-state {
+    text-align: center; padding: 32px 16px; color: #475569;
+  }
+  .empty-state .icon { font-size: 2rem; margin-bottom: 8px; }
+  .action-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+
+  /* 美化滚动条 */
+  ::-webkit-scrollbar { width: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+  @media (max-width: 640px) {
+    body { padding: 12px; }
+    .container { padding: 0 2px; }
+    h1 { font-size: 1.3rem; }
+    .stats-grid { grid-template-columns: repeat(2, 1fr); }
+    .code-item { flex-direction: column; align-items: flex-start; gap: 8px; }
+    .code-item > div:last-child { width: 100%; }
+    .action-btns { width: 100%; justify-content: flex-end; }
+    .confirm-box { width: 92vw; padding: 22px; }
+    .lock-box { width: 90vw; padding: 24px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- 密码验证遮罩 -->
+<div id="lock-screen" class="lock-screen">
+  <div class="lock-box">
+    <div class="lock-icon">🔐</div>
+    <h3>创作者管理面板</h3>
+    <p style="color:#64748b;font-size:0.8rem;margin-bottom:16px;">请输入创作者密码以登录</p>
+    <input type="password" id="lock-pw" placeholder="创作者密码" autocomplete="new-password" onkeydown="if(event.key==='Enter')doUnlock()">
+    <button class="btn-primary" style="width:100%;margin-top:10px;" onclick="doUnlock()">验证登录</button>
+    <div id="lock-msg"></div>
+  </div>
+</div>
+
+<!-- 确认弹窗（删除/撤销） -->
+<div id="confirm-overlay" class="confirm-overlay">
+  <div class="confirm-box">
+    <h4 id="confirm-title">确认操作</h4>
+    <p id="confirm-desc">您确定要执行此操作吗？</p>
+    <input type="password" id="confirm-pw" placeholder="请输入创作者密码确认" autocomplete="new-password" onkeydown="if(event.key==='Enter')confirmAction()">
+    <div class="row" style="margin-top:14px;">
+      <button class="btn-danger" onclick="confirmAction()" id="confirm-btn">确定执行</button>
+      <button class="btn-ghost" onclick="closeConfirm()">取消</button>
+    </div>
+    <div id="confirm-msg"></div>
+  </div>
+</div>
+
+<div class="container">
+  <h1>护眼精灵 - 创作者管理面板</h1>
+  <div class="subtitle">管理激活码、查看使用情况、控制系统设置</div>
+
+  <!-- API配置 -->
+  <div class="card">
+    <h2>API 服务器配置</h2>
+    <div class="row">
+      <input type="text" id="api-url" value="" placeholder="API 服务器地址">
+      <button class="btn-primary btn-sm" onclick="saveApiUrl()">保存</button>
+    </div>
+    <div id="api-msg"></div>
+  </div>
+
+  <!-- 统计 -->
+  <div class="card">
+    <h2>激活码概览</h2>
+    <div class="stats-grid">
+      <div class="stat-box"><div class="num" id="stat-total">-</div><div class="label">总数</div></div>
+      <div class="stat-box"><div class="num" id="stat-used">-</div><div class="label">已使用</div></div>
+      <div class="stat-box"><div class="num" id="stat-unused">-</div><div class="label">未使用</div></div>
+      <div class="stat-box"><div class="num" id="stat-expired">-</div><div class="label">已过期</div></div>
+    </div>
+    <div class="row" style="margin-top:10px;">
+      <button class="btn-primary btn-sm" onclick="runCalibrate()">&#x1F50D; 检查校准</button>
+      <div id="calibrate-msg" style="flex:1;font-size:0.75rem;color:#94a3b8;"></div>
+    </div>
+    <div id="calibrate-issues" style="display:none;margin-top:10px;max-height:300px;overflow-y:auto;"></div>
+  </div>
+
+  <!-- 生成激活码 -->
+  <div class="card">
+    <h2>生成激活码</h2>
+    <div class="row">
+      <select id="gen-plan">
+        <option value="week">周卡 (2.88元 / 7天)</option>
+        <option value="month" selected>月卡 (8.88元 / 30天)</option>
+        <option value="year">年卡 (88.8元 / 365天)</option>
+        <option value="lifetime">终身 (请联系创作者)</option>
+      </select>
+      <input type="number" id="gen-count" value="1" min="1" max="50" style="flex:0 0 80px;text-align:center;">
+    </div>
+    <input type="tel" id="gen-phone" placeholder="绑定手机号（可选，留空则由用户自行绑定）" maxlength="11">
+    <button class="btn-success" style="width:100%;" onclick="generateCodes()">生成激活码</button>
+    <div id="gen-result"></div>
+  </div>
+
+  <!-- 激活码列表 -->
+  <div class="card">
+    <h2>已生成激活码</h2>
+    <div class="row" style="margin-bottom:10px;">
+      <button class="btn-primary btn-sm" onclick="loadCodeList()">刷新数据</button>
+      <button class="btn-ghost btn-sm" onclick="toggleViewMode()" id="view-mode-btn">按手机号查看</button>
+    </div>
+    <div id="code-list" class="code-list">
+      <div class="empty-state"><div class="icon">📋</div>点击"刷新数据"加载激活码列表</div>
+    </div>
+  </div>
+
+  <!-- 手机号会员详情（按手机号查看时显示） -->
+  <div class="card" id="phone-detail-card" style="display:none;">
+    <h2>用户会员详情</h2>
+    <div id="phone-detail-list"></div>
+  </div>
+
+  <!-- 修改密码 -->
+  <div class="card">
+    <h2>修改管理密码</h2>
+    <input type="password" id="pw-old" placeholder="当前密码" autocomplete="new-password">
+    <input type="password" id="pw-new" placeholder="新密码（至少6位）" autocomplete="new-password">
+    <input type="password" id="pw-confirm" placeholder="确认新密码" autocomplete="new-password">
+    <button class="btn-primary btn-sm" onclick="changePassword()">修改密码</button>
+    <div id="pw-msg"></div>
+  </div>
+
+</div>
+
+<script>
+// ==================== HTML转义 ====================
+
+function esc(s) {
+  if (!s) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+
+// ==================== 配置 ====================
+var API_BASE = sessionStorage.getItem('seller_api_url') || localStorage.getItem('seller_api_url') || '';
+var SELLER_PW = sessionStorage.getItem('seller_password') || 'lxx218360lxx';
+var _pendingAction = null;
+
+// 套餐名称映射
+var PLAN_NAMES = { week: '周卡', month: '月卡', year: '年卡', lifetime: '终身' };
+var PLAN_DAYS = { week: 7, month: 30, year: 365, lifetime: 36500 };
+
+// ==================== 初始化 ====================
+
+// 智能检测API地址
+(function(){
+  var h = window.location.origin;
+  var p = window.location.pathname;
+  if (p.indexOf('/seller') === 0 && !API_BASE) {
+    API_BASE = h;
+    sessionStorage.setItem('seller_api_url', API_BASE);
+  }
+  var el = document.getElementById('api-url');
+  if (el) el.value = API_BASE || 'https://18073951649.pythonanywhere.com';
+})();
+
+// ==================== 工具函数 ====================
+
+function showMsg(id, text, ok) {
+  var el = document.getElementById(id);
+  if (!el) return;
+  el.className = 'msg ' + (ok ? 'ok' : 'err');
+  el.textContent = text;
+  el.style.display = 'block';
+}
+
+// 安全的API POST请求，处理HTML错误响应
+function apiPost(path, body) {
+  return fetch(API_BASE + path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  }).then(function(r) {
+    // 检查content-type，如果是HTML说明API路由不存在或服务器返回了错误页
+    var ct = r.headers.get('content-type') || '';
+    if (ct.indexOf('text/html') !== -1) {
+      return r.text().then(function(html) {
+        throw new Error('服务器返回了网页而非JSON（API路由可能不存在，请确认已上传最新api_server.py）');
+      });
+    }
+    return r.json();
+  });
+}
+
+// ==================== 登录 ====================
+
+function doUnlock() {
+  var pw = document.getElementById('lock-pw').value.trim();
+  if (!pw) { showMsg('lock-msg', '请输入密码', false); return; }
+  if (pw === SELLER_PW) {
+    document.getElementById('lock-screen').classList.add('hidden');
+    loadCodeList();
+  } else {
+    showMsg('lock-msg', '密码错误，请重试', false);
+  }
+}
+
+// ==================== API配置 ====================
+
+function saveApiUrl() {
+  var url = document.getElementById('api-url').value.trim();
+  if (!url) { showMsg('api-msg', '请输入API地址', false); return; }
+  API_BASE = url.replace(/\/$/, '');
+  localStorage.setItem('seller_api_url', API_BASE);
+  showMsg('api-msg', '已保存: ' + API_BASE, true);
+}
+
+// ==================== 校准检查（只检查不自动修复） ====================
+
+function runCalibrate() {
+  var msgEl = document.getElementById('calibrate-msg');
+  var issuesEl = document.getElementById('calibrate-issues');
+  msgEl.textContent = '正在检查...';
+  issuesEl.style.display = 'none';
+  issuesEl.innerHTML = '';
+
+  apiPost('/api/calibrate', { password: SELLER_PW }).then(function(data) {
+    if (data.success && data.report) {
+      var r = data.report;
+      var issueCount = r.issues ? r.issues.length : 0;
+      msgEl.innerHTML = '检查完成: 共 <b>' + esc(r.checked) + '</b> 个激活码, 发现 <b style="color:' + (issueCount > 0 ? '#f59e0b' : '#00d4aa') + ';">' + esc(issueCount) + '</b> 个问题';
+
+      if (issueCount > 0) {
+        // 按手机号分组显示问题
+        var phoneGroups = {};
+        r.issues.forEach(function(issue) {
+          var phone = issue.phone || '未绑定手机';
+          if (!phoneGroups[phone]) phoneGroups[phone] = [];
+          phoneGroups[phone].push(issue);
+        });
+
+        var html = '<div style="font-size:0.75rem;">';
+        html += '<div style="color:#f59e0b;margin-bottom:8px;font-weight:600;">&#x26A0; 以下激活码存在问题，请逐个确认修复：</div>';
+
+        var phoneKeys = Object.keys(phoneGroups);
+        for (var p = 0; p < phoneKeys.length; p++) {
+          var phone = phoneKeys[p];
+          var issues = phoneGroups[phone];
+          html += '<div style="padding:8px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.2);border-radius:6px;margin-bottom:6px;">';
+          html += '<div style="font-weight:600;color:var(--ink);margin-bottom:4px;">&#x1F4F1; ' + esc(phone) + ' (' + esc(issues.length) + '个问题)</div>';
+          for (var i = 0; i < issues.length; i++) {
+            var iss = issues[i];
+            var issueId = 'issue_' + iss.code;
+            html += '<div id="' + esc(issueId) + '" style="padding:6px 8px;background:var(--bg);border-radius:4px;margin-bottom:4px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:4px;">';
+            html += '<div style="flex:1;min-width:200px;">';
+            html += '<div style="color:var(--muted);font-size:0.72rem;"><code style="color:var(--accent);">' + esc(iss.code) + '</code> · ' + esc(iss.plan_name) + '</div>';
+            html += '<div style="color:#f59e0b;font-size:0.7rem;">' + esc(iss.description) + '</div>';
+            html += '</div>';
+            html += '<button class="btn-primary btn-sm" style="padding:3px 10px;font-size:0.7rem;" data-code="' + esc(iss.code) + '" onclick="fixOneIssue(this.dataset.code, this)">&#x1F527; 修复</button>';
+            html += '</div>';
+          }
+          html += '</div>';
+        }
+        html += '</div>';
+        issuesEl.innerHTML = html;
+        issuesEl.style.display = 'block';
+      }
+    } else {
+      msgEl.textContent = '检查失败: ' + (data.msg || '未知错误');
+    }
+  }).catch(function(err) {
+    msgEl.textContent = '检查失败: ' + err.message;
+  });
+}
+
+// 修复单个问题（需要密码确认，选择新套餐类型）
+function fixOneIssue(code, btnEl) {
+  // 弹出选择套餐类型
+  var planChoice = prompt('请输入新的套餐类型（week=周卡, month=月卡, year=年卡, lifetime=终身）：');
+  if (!planChoice) return;
+  planChoice = planChoice.trim().toLowerCase();
+  if (!PLAN_NAMES[planChoice]) {
+    alert('无效的套餐类型，请输入 week/month/year/lifetime');
+    return;
+  }
+
+  // 弹出密码确认
+  var pw = prompt('请输入管理员密码以修复激活码 ' + code + '：');
+  if (!pw) return;
+
+  // 禁用按钮防止重复点击
+  btnEl.disabled = true;
+  btnEl.textContent = '修复中...';
+  btnEl.style.opacity = '0.5';
+
+  apiPost('/api/fix_code', { code: code, password: pw, plan: planChoice }).then(function(data) {
+    if (data.success) {
+      // 标记该条为已修复
+      var issueEl = document.getElementById('issue_' + code);
+      if (issueEl) {
+        issueEl.style.borderColor = 'rgba(0,212,170,0.3)';
+        issueEl.style.background = 'rgba(0,212,170,0.05)';
+        var infoDiv = issueEl.querySelector('div:first-child');
+        infoDiv.innerHTML = '<div style="color:#00d4aa;font-size:0.72rem;"><code style="color:var(--accent);">' + esc(code) + '</code> · &#x2705; ' + esc(data.msg) + (data.membership ? ' (会员剩余' + esc(data.membership.remaining_days) + '天)' : '') + '</div>';
+        btnEl.textContent = '已修复';
+        btnEl.style.background = 'rgba(0,212,170,0.2)';
+        btnEl.style.color = '#00d4aa';
+        btnEl.disabled = true;
+      }
+      // 更新列表（刷新剩余天数等）
+      loadCodeList();
+    } else {
+      alert('修复失败: ' + (data.msg || '未知错误'));
+      btnEl.disabled = false;
+      btnEl.textContent = '修复';
+      btnEl.style.opacity = '1';
+    }
+  }).catch(function(err) {
+    alert('修复失败: ' + err.message);
+    btnEl.disabled = false;
+    btnEl.textContent = '修复';
+    btnEl.style.opacity = '1';
+  });
+}
+
+// ==================== 生成激活码 ====================
+
+function generateCodes() {
+  var plan = document.getElementById('gen-plan').value;
+  var count = parseInt(document.getElementById('gen-count').value) || 1;
+  var phone = document.getElementById('gen-phone').value.trim();
+  var resultEl = document.getElementById('gen-result');
+
+  // 验证手机号格式
+  if (phone && !/^1[3-9]\d{9}$/.test(phone)) {
+    resultEl.innerHTML = '<div class="msg err">手机号格式不正确（需要11位中国大陆手机号）</div>';
+    return;
+  }
+
+  resultEl.innerHTML = '<div class="msg" style="background:rgba(30,41,59,0.5);color:#94a3b8;border:1px solid #334155;">正在生成激活码...</div>';
+
+  apiPost('/api/generate', {
+    password: SELLER_PW,
+    plan: plan,
+    count: count,
+    phone: phone
+  }).then(function(data) {
+    if (data.success && data.codes) {
+      var html = '<div style="margin-top:12px;">';
+      html += '<div class="msg ok">生成成功！共 ' + data.codes.length + ' 个 ' + PLAN_NAMES[plan] + '</div>';
+      data.codes.forEach(function(c) {
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid rgba(51,65,85,0.4);">';
+        html += '<span class="code-text">' + esc(c) + '</span>';
+        html += '<button class="btn-xs btn-primary" data-code="' + esc(c) + '" onclick="copyText(this.dataset.code,this)">复制</button>';
+        html += '</div>';
+      });
+      var allCodes = data.codes.join('\n');
+      html += '<button class="btn-sm btn-primary" style="margin-top:10px;" onclick="copyText(window._allCodes,this)">复制全部</button>';
+      html += '</div>';
+      resultEl.innerHTML = html;
+      // 存储全部激活码用于复制
+      window._allCodes = allCodes;
+      loadCodeList();
+    } else {
+      resultEl.innerHTML = '<div class="msg err">生成失败: ' + esc(data.msg || '未知错误') + '</div>';
+    }
+  }).catch(function(err) {
+    resultEl.innerHTML = '<div class="msg err">连接失败: ' + esc(err.message) + '</div>';
+  });
+}
+
+// ==================== 激活码列表 ====================
+
+var _viewByPhone = false;
+var _allCodesData = null;
+
+function toggleViewMode() {
+  _viewByPhone = !_viewByPhone;
+  document.getElementById('view-mode-btn').textContent = _viewByPhone ? '按激活码查看' : '按手机号查看';
+  if (_viewByPhone) {
+    loadPhoneDetails();
+  } else {
+    document.getElementById('phone-detail-card').style.display = 'none';
+    if (_allCodesData) renderCodeList(_allCodesData);
+  }
+}
+
+function loadCodeList() {
+  var listEl = document.getElementById('code-list');
+  listEl.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>正在加载...</div>';
+
+  apiPost('/api/list', { password: SELLER_PW }).then(function(data) {
+    if (data.success && data.codes) {
+      _allCodesData = data.codes;
+      renderCodeList(data.codes);
+      if (_viewByPhone) loadPhoneDetails();
+    } else {
+      listEl.innerHTML = '<div class="msg err">加载失败: ' + esc(data.msg || '未知错误') + '</div>';
+    }
+  }).catch(function(err) {
+    listEl.innerHTML = '<div class="msg err">连接失败: ' + esc(err.message) + '</div>';
+  });
+}
+
+function renderCodeList(codes) {
+  var listEl = document.getElementById('code-list');
+  var keys = Object.keys(codes).sort();
+  var total = keys.length;
+  var used = 0, unused = 0, expired = 0;
+  var html = '';
+
+  keys.forEach(function(code) {
+    var rec = codes[code];
+    var isUsed = rec.used;
+    var remaining = rec.remaining_days;
+    var planName = PLAN_NAMES[rec.plan] || rec.plan;
+    var phone = rec.phone || '';
+    var isExpired = false;
+
+    if (isUsed && remaining !== null && remaining !== undefined && remaining <= 0) {
+      isExpired = true; expired++;
+    } else if (isUsed) { used++; }
+    else { unused++; }
+
+    var remainingHtml = '';
+    if (isUsed && remaining !== null && remaining !== undefined) {
+      if (remaining <= 0) {
+        remainingHtml = '<span class="remaining-expired">已过期</span>';
+      } else if (remaining >= 99999) {
+        remainingHtml = '<span class="remaining-days" style="color:#00d4aa;">终身有效</span>';
+      } else {
+        var expDate = rec.expires_at ? new Date(rec.expires_at * 1000).toLocaleDateString('zh-CN') : '';
+        remainingHtml = '<span class="remaining-days">到期 ' + expDate + '（' + remaining + '天）</span>';
+      }
+    }
+
+    var isRevoked = !!rec.revoked_at;
+    var statusTag = isExpired ? '<span class="tag revoked">已过期</span>'
+      : isRevoked ? '<span class="tag revoked" style="background:rgba(245,158,11,0.15);color:#f59e0b;">已撤销</span>'
+      : isUsed ? '<span class="tag used">已使用</span>'
+      : '<span class="tag unused">未使用</span>';
+
+    html += '<div class="code-item">';
+    html += '<div class="code-main">';
+    html += '<div class="code-text">' + esc(code) + '</div>';
+    html += '<div class="code-meta">' + statusTag + '<span class="tag plan-tag">' + esc(planName) + '</span>';
+    if (phone) html += '<span class="tag phone-tag">' + esc(phone) + '</span>';
+    html += remainingHtml + '</div></div>';
+    html += '<div class="action-btns">';
+    html += '<button class="btn-xs btn-ghost" data-code="' + esc(code) + '" onclick="copyText(this.dataset.code,this)">复制</button>';
+    if (isExpired) {
+      html += '<button class="btn-xs btn-danger" data-code="' + esc(code) + '" onclick="deleteExpiredDirect(this.dataset.code)">清理</button>';
+    } else if (!isUsed) {
+      html += '<button class="btn-xs btn-danger" data-code="' + esc(code) + '" onclick="openDeleteConfirm(this.dataset.code)">删除</button>';
+    } else {
+      html += '<button class="btn-xs btn-warning" data-code="' + esc(code) + '" onclick="openRevokeConfirm(this.dataset.code)">撤销</button>';
+    }
+    html += '</div></div>';
+  });
+
+  if (total === 0) html = '<div class="empty-state"><div class="icon">📭</div>暂无激活码</div>';
+
+  document.getElementById('stat-total').textContent = total;
+  document.getElementById('stat-used').textContent = used;
+  document.getElementById('stat-unused').textContent = unused;
+  document.getElementById('stat-expired').textContent = expired;
+  listEl.innerHTML = html;
+}
+
+// 过期激活码直接删除（无需密码）
+function deleteExpiredDirect(code) {
+  if (!confirm('确定清理过期激活码 ' + code + '？')) return;
+  apiPost('/api/delete_code', { code: code, password: SELLER_PW }).then(function(data) {
+    if (data.success) {
+      loadCodeList();
+    } else {
+      alert('清理失败: ' + (data.msg || '未知错误'));
+    }
+  }).catch(function(err) {
+    alert('连接失败: ' + err.message);
+  });
+}
+
+// ==================== 手机号会员详情 ====================
+
+function loadPhoneDetails() {
+  var detailCard = document.getElementById('phone-detail-card');
+  var detailList = document.getElementById('phone-detail-list');
+  detailCard.style.display = 'block';
+  detailList.innerHTML = '<div class="empty-state"><div class="icon">⏳</div>正在加载用户详情...</div>';
+
+  apiPost('/api/users', { password: SELLER_PW }).then(function(data) {
+    if (!data.success || !data.phones) {
+    detailList.innerHTML = '<div class="msg err">加载失败</div>';
+      return;
+    }
+    var phones = data.phones;
+    var keys = Object.keys(phones).sort();
+    if (keys.length === 0) {
+      detailList.innerHTML = '<div class="empty-state"><div class="icon">📭</div>暂无绑定用户</div>';
+      return;
+    }
+
+    var html = '';
+    keys.forEach(function(phone) {
+      var info = phones[phone];
+      var mem = info.membership || {};
+      var isValid = mem.valid;
+      var remaining = mem.remaining_days || 0;
+      var activeCount = (mem.active_codes || []).length;
+
+      // 时间格式化
+      var startTime = mem.earliest_start ? new Date(mem.earliest_start * 1000).toLocaleString('zh-CN') : '-';
+      var endTime = mem.end_time ? new Date(mem.end_time * 1000).toLocaleString('zh-CN') : '-';
+
+      html += '<div style="background:rgba(15,23,42,0.7);border-radius:12px;padding:14px;margin-bottom:12px;border:1px solid rgba(51,65,85,0.5);">';
+      html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">';
+      html += '<div>';
+      html += '<div style="font-weight:700;font-size:0.9rem;color:#38bdf8;">' + esc(phone.replace(/(\d{3})\d{4}(\d{4})/, '$1****$2')) + '</div>';
+      html += '<div style="font-size:0.72rem;color:#64748b;">绑定 ' + esc(info.codes.length) + ' 个激活码</div>';
+      html += '</div>';
+      if (isValid) {
+        html += '<div style="text-align:right;">';
+        html += '<div style="font-size:1.1rem;font-weight:800;color:#6ee7b7;">' + esc(remaining) + ' 天</div>';
+        html += '<div style="font-size:0.68rem;color:#64748b;">' + (activeCount > 1 ? esc(activeCount) + '个码叠加' : '有效会员') + '</div>';
+        html += '</div>';
+      } else {
+        html += '<div style="font-size:0.88rem;font-weight:700;color:#f87171;">已失效</div>';
+      }
+      html += '</div>';
+
+      // 时间详情
+      html += '<div style="font-size:0.72rem;color:#94a3b8;line-height:1.8;background:rgba(15,23,42,0.5);padding:8px 10px;border-radius:8px;">';
+      html += '<div>开始: ' + startTime + '</div>';
+      html += '<div>到期: ' + endTime + '</div>';
+      html += '<div style="color:#64748b;font-size:0.68rem;">时长按日历计算（激活后固定' + (isValid ? remaining : 0) + '天到期）</div>';
+      html += '</div>';
+
+      // 该手机号下的激活码列表
+      html += '<div style="margin-top:8px;">';
+      info.codes.forEach(function(c) {
+        var isExpired = c.used && c.remaining_days !== null && c.remaining_days <= 0;
+        var statusCls = isExpired ? 'revoked' : c.used ? 'used' : 'unused';
+        var statusTxt = isExpired ? '已过期' : c.used ? '有效' : '未使用';
+        var remTxt = '';
+        if (c.used && c.remaining_days !== null && c.remaining_days > 0) {
+          remTxt = ' (剩' + c.remaining_days + '天)';
+        }
+        html += '<div style="display:flex;justify-content:space-between;align-items:center;padding:4px 0;font-size:0.75rem;">';
+        html += '<div style="display:flex;align-items:center;gap:6px;">';
+        html += '<span class="tag ' + statusCls + '">' + esc(statusTxt) + '</span>';
+        html += '<span class="tag plan-tag">' + esc(c.plan_name || c.plan) + '</span>';
+        html += '<span style="font-family:monospace;color:#38bdf8;font-size:0.7rem;">' + esc(c.code) + '</span>';
+        if (remTxt) html += '<span class="remaining-days">' + remTxt + '</span>';
+        html += '</div>';
+        if (isExpired) {
+          html += '<button class="btn-xs btn-danger" style="font-size:0.68rem;padding:2px 8px;" data-code="' + esc(c.code) + '" onclick="deleteExpiredDirect(this.dataset.code)">清理</button>';
+        }
+        html += '</div>';
+      });
+      html += '</div></div>';
+    });
+
+    detailList.innerHTML = html;
+  }).catch(function(err) {
+    detailList.innerHTML = '<div class="msg err">连接失败: ' + esc(err.message) + '</div>';
+  });
+}
+
+// ==================== 删除/撤销确认弹窗 ====================
+
+function openDeleteConfirm(code) {
+  _pendingAction = { type: 'delete', code: code };
+  document.getElementById('confirm-title').textContent = '删除激活码';
+  document.getElementById('confirm-desc').innerHTML = '您确定要删除激活码 <span class="code-highlight">' + esc(code) + '</span> 吗？<br>删除后无法恢复。';
+  document.getElementById('confirm-pw').value = '';
+  document.getElementById('confirm-msg').textContent = '';
+  document.getElementById('confirm-msg').style.display = 'none';
+  document.getElementById('confirm-overlay').classList.add('open');
+  // 延迟聚焦密码框
+  setTimeout(function(){ document.getElementById('confirm-pw').focus(); }, 100);
+}
+
+function openRevokeConfirm(code) {
+  _pendingAction = { type: 'revoke', code: code };
+  document.getElementById('confirm-title').textContent = '撤销激活状态';
+  document.getElementById('confirm-desc').innerHTML = '您确定要撤销激活码 <span class="code-highlight">' + esc(code) + '</span> 的激活状态吗？<br>撤销后该激活码可重新使用。';
+  document.getElementById('confirm-pw').value = '';
+  document.getElementById('confirm-msg').textContent = '';
+  document.getElementById('confirm-msg').style.display = 'none';
+  document.getElementById('confirm-overlay').classList.add('open');
+  setTimeout(function(){ document.getElementById('confirm-pw').focus(); }, 100);
+}
+
+function closeConfirm() {
+  document.getElementById('confirm-overlay').classList.remove('open');
+  _pendingAction = null;
+}
+
+function confirmAction() {
+  if (!_pendingAction) return;
+  var pw = document.getElementById('confirm-pw').value.trim();
+  if (!pw) { showMsg('confirm-msg', '请输入密码', false); return; }
+  if (pw !== SELLER_PW) { showMsg('confirm-msg', '密码错误', false); return; }
+
+  var action = _pendingAction;
+  var path = action.type === 'delete' ? '/api/delete_code' : '/api/revoke_code';
+  var btn = document.getElementById('confirm-btn');
+  btn.textContent = '处理中...';
+  btn.disabled = true;
+
+  apiPost(path, { password: pw, code: action.code }).then(function(data) {
+    btn.textContent = '确定执行';
+    btn.disabled = false;
+    if (data.success) {
+      showMsg('confirm-msg', data.msg, true);
+      setTimeout(function() {
+        closeConfirm();
+        loadCodeList();
+      }, 1000);
+    } else {
+      showMsg('confirm-msg', '操作失败: ' + esc(data.msg || '未知错误'), false);
+    }
+  }).catch(function(err) {
+    btn.textContent = '确定执行';
+    btn.disabled = false;
+    showMsg('confirm-msg', '连接失败: ' + err.message, false);
+  });
+}
+
+// ==================== 修改密码 ====================
+
+function changePassword() {
+  var oldPw = document.getElementById('pw-old').value.trim();
+  var newPw = document.getElementById('pw-new').value.trim();
+  var confirmPw = document.getElementById('pw-confirm').value.trim();
+
+  if (!oldPw) { showMsg('pw-msg', '请输入当前密码', false); return; }
+  if (oldPw !== SELLER_PW) { showMsg('pw-msg', '当前密码错误', false); return; }
+  if (!newPw || newPw.length < 6) { showMsg('pw-msg', '新密码至少6位', false); return; }
+  if (newPw !== confirmPw) { showMsg('pw-msg', '两次输入的新密码不一致', false); return; }
+
+  showMsg('pw-msg', '正在修改密码...', true);
+
+  apiPost('/api/change_password', {
+    old_password: oldPw,
+    new_password: newPw
+  }).then(function(data) {
+    if (data.success) {
+      SELLER_PW = newPw;
+      sessionStorage.setItem('seller_password', newPw);
+      showMsg('pw-msg', '密码修改成功（已同步到服务器和本地）', true);
+      document.getElementById('pw-old').value = '';
+      document.getElementById('pw-new').value = '';
+      document.getElementById('pw-confirm').value = '';
+    } else {
+      showMsg('pw-msg', '修改失败: ' + esc(data.msg || '未知错误'), false);
+    }
+  }).catch(function(err) {
+    showMsg('pw-msg', '连接失败: ' + err.message, false);
+  });
+}
+
+// ==================== 复制功能 ====================
+
+function copyText(text, btnEl) {
+  navigator.clipboard.writeText(text).then(function() {
+    if (btnEl) {
+      var orig = btnEl.textContent;
+      btnEl.textContent = '已复制';
+      btnEl.style.opacity = '0.6';
+      setTimeout(function(){ btnEl.textContent = orig; btnEl.style.opacity = '1'; }, 1200);
+    }
+  }).catch(function() {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.position = 'fixed';
+    ta.style.left = '-9999px';
+    document.body.appendChild(ta);
+    ta.select();
+    document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (btnEl) {
+      var orig = btnEl.textContent;
+      btnEl.textContent = '已复制';
+      setTimeout(function(){ btnEl.textContent = orig; }, 1200);
+    }
+  });
+}
+
+// 点击弹窗外部关闭
+document.getElementById('confirm-overlay').addEventListener('click', function(e) {
+  if (e.target === this) closeConfirm();
+});
+</script>
+
+</body>
+</html>
